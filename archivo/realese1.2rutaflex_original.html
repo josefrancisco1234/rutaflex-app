@@ -1,0 +1,366 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RutaFlex · Release 1.1</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script><style>
+:root{--ink:#16354a;--muted:#607783;--green:#008b72;--mint:#e5f7f1;--line:#dfe9eb;--bg:#f4f8f9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,sans-serif}button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:12px 18px;background:var(--green);color:white;font-weight:650;min-height:44px}button:hover{filter:brightness(.95)}button:disabled{opacity:.45;cursor:not-allowed}button.secondary{background:white;color:var(--ink);border:1px solid var(--line)}button.link{background:transparent;color:var(--green);padding:8px}a{color:var(--green)}:focus-visible{outline:3px solid #26b8ca;outline-offset:3px}h1,h2,h3,p{margin:0 0 14px}h1{font-size:clamp(28px,4vw,42px);line-height:1.15;letter-spacing:-1.3px}h2{font-size:23px;letter-spacing:-.5px}h3{font-size:18px}.muted,small{color:var(--muted)}small{font-size:12px}.brand{font-size:25px;font-weight:800;letter-spacing:-1px}.brand span{color:var(--green)}.brand b{display:inline-grid;place-items:center;background:var(--mint);color:var(--green);width:42px;height:42px;border-radius:14px;margin-right:8px;font-size:20px}header{background:white;border-bottom:1px solid var(--line);padding:16px 5%;display:flex;align-items:center;justify-content:space-between;gap:15px}nav{display:flex;gap:5px;flex-wrap:wrap}nav button{background:transparent;color:var(--muted);padding:9px 12px}nav button.active{background:var(--mint);color:var(--green)}main{max-width:1160px;margin:auto;padding:34px 24px 80px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:25px}.tag{font-size:11px;font-weight:750;letter-spacing:1px;text-transform:uppercase;color:var(--green)}.pill{background:var(--mint);color:var(--green);padding:5px 10px;border-radius:30px;font-size:12px;display:inline-block}.card{background:white;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 4px 16px #16354a04}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.split{display:grid;grid-template-columns:1.5fr 1fr;gap:22px}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.between{justify-content:space-between}.avatar{width:44px;height:44px;display:grid;place-items:center;background:#e7eef7;border-radius:50%;color:#23527a;font-weight:750}.price{font-size:24px;font-weight:800}.tripline{border-left:2px solid #7bc7b7;margin:20px 0 20px 7px;padding-left:20px}.tripline div{position:relative;margin:14px 0}.tripline div:before{content:'';position:absolute;width:9px;height:9px;border-radius:50%;background:var(--green);left:-26px;top:7px}.card footer{border-top:1px solid var(--line);padding-top:15px;margin-top:18px}.hero{background:var(--ink);color:white;border-radius:24px;padding:32px;margin-bottom:25px}.hero .muted{color:#b6d2d9}.hero .tag{color:#62dfb9}.search{display:flex;gap:10px;margin-top:20px}.search input{flex:1;min-width:0}.form{max-width:640px}.field{margin-bottom:18px}label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}input,select{width:100%;padding:12px 14px;border:1px solid #ccdadd;border-radius:11px;background:white;color:var(--ink)}input.invalid{border-color:#b83131}.error{color:#ac2828;font-size:13px;margin-top:6px}.alert{padding:13px 16px;border-radius:12px;background:var(--mint);margin:15px 0;color:#006950}.alert.bad{background:#fff0ef;color:#9d2929}.empty{text-align:center;padding:45px 20px}.empty .symbol{font-size:36px;color:var(--green);margin-bottom:10px}.auth{display:grid;grid-template-columns:1fr 1fr;max-width:1020px;margin:30px auto;gap:50px;align-items:center}.authaside{padding:35px}.authaside h1{font-size:52px}.authaside .note{margin-top:35px;border-top:1px solid var(--line);padding-top:22px}.authform{padding:32px}.stars{color:#df9c12;letter-spacing:2px}.starbtn{font-size:34px;background:transparent;color:#a5b4ba;padding:4px 7px}.starbtn.selected{color:#e6a20c}.messages{height:360px;overflow:auto;padding:15px 0;display:flex;flex-direction:column;gap:14px}.bubble{max-width:80%;padding:12px 16px;background:#edf3f5;border-radius:16px 16px 16px 3px;align-self:flex-start;overflow-wrap:anywhere}.bubble.me{background:var(--mint);align-self:flex-end;border-radius:16px 16px 3px 16px}.bubble small{display:block;margin-top:5px}.overlay{position:fixed;inset:0;background:#16354a88;display:grid;place-items:center;padding:20px;z-index:10}.modal{max-width:500px;width:100%}.metric{font-size:45px;letter-spacing:-2px;font-weight:800;color:var(--green)}.demo{margin-top:32px;border:1px dashed #b5c9ce;border-radius:14px;padding:16px}.demo summary{cursor:pointer;font-size:13px;font-weight:650}.demo button{margin:8px 4px 0 0;font-size:12px;padding:8px 12px}.map{background:#eaf5f1;border:1px solid #cfe5df;border-radius:16px;padding:24px;margin:18px 0}.map .path{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:700}.map .dash{flex:1;border-top:3px dashed #66b9a6}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--mint)}.guide section{margin-bottom:22px}.toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);background:var(--ink);color:white;padding:14px 24px;border-radius:12px;z-index:20;max-width:90%}.back{margin-bottom:18px}.full{width:100%}@media(max-width:850px){header{flex-wrap:wrap;padding:12px 20px}nav{width:100%;overflow:auto;flex-wrap:nowrap}nav button{white-space:nowrap;font-size:13px}main{padding:24px 16px 60px}.grid,.split{grid-template-columns:1fr}.auth{grid-template-columns:1fr;gap:15px;margin:0}.authaside{padding:15px}.authaside h1{font-size:35px}.authaside .note{display:none}.authform{padding:24px}.hero{padding:24px}.top{align-items:flex-start}.search{flex-direction:column}.messages{height:330px}}
+
+.leaf{height:400px;border-radius:16px;overflow:hidden;border:1px solid #cfe5df;margin:18px 0;background:#eaf5f1;position:relative;z-index:0}
+.leaf.small{height:320px}
+.mapfallback{height:100%;display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted)}
+.carpin{font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px #0005);transition:transform .2s}
+.destpin{font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px #0004)}
+.rolebadge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:30px;font-size:12px;font-weight:700}
+.rolebadge.pasajero{background:#e7eef7;color:#23527a}
+.rolebadge.conductor{background:#fff3dc;color:#8a5a00}
+.brand{white-space:nowrap}.headright{white-space:nowrap;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.headright button{padding:8px 12px;min-height:36px;font-size:13px}
+.rolepick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.rolepick button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;font-size:13px}
+.rolepick button span{font-size:22px}
+.progress{height:10px;background:#e3eef0;border-radius:10px;overflow:hidden;margin:6px 0 14px}
+.progress div{height:100%;background:var(--green);width:0;transition:width .25s}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:6px}
+.stats div{background:var(--bg);border-radius:12px;padding:10px 12px}
+.stats strong{display:block;font-size:18px}
+button.finish{background:#c0392b;font-size:17px;padding:16px}
+button.finish:disabled{background:#c9b3b0}
+.passlist{list-style:none;padding:0;margin:0 0 14px}
+.passlist li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.passlist .avatar{width:34px;height:34px;font-size:13px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.btnrow button{flex:1}
+@media(max-width:850px){.stats{grid-template-columns:1fr 1fr 1fr}.leaf{height:330px}.rolepick{grid-template-columns:1fr}}
+</style></head><body><header><div class="brand"><b>RF</b>Ruta<span>Flex</span></div><nav id="nav"></nav><div class="headright" id="who"></div></header><main id="app"></main><div id="modal"></div><div id="toast" role="status" aria-live="polite"></div><script>
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'S/ '+Number(n).toFixed(2), norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const ULIMA=[-12.0848,-76.9712];
+const KEY='rutaflex-r11';
+
+const seed=()=>({users:[
+ {id:'g',role:'pasajero',name:'Gabriel',email:'gabriel@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[5,4],completed:3},
+ {id:'l',role:'pasajero',name:'Lucía Paredes',email:'lucia@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[5],completed:2},
+ {id:'a',role:'conductor',name:'Andrea Salazar',email:'andrea@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[5,5,4,5,5],completed:18,car:'Sedán azul · DEM-101'},
+ {id:'d',role:'conductor',name:'Diego Ríos',email:'diego@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[4,5,4,5],completed:12,car:'Hatchback gris · DEM-202'},
+ {id:'v',role:'conductor',name:'Valeria Torres',email:'valeria@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[],completed:0,car:'Sedán blanco · DEM-303'}],
+trips:[
+ {id:'t1',driver:'a',origin:'Miraflores · Parque Kennedy',dest:'Universidad de Lima',time:'07:15',seats:2,price:8,status:'Activo',members:['g','a'],stops:['Av. Benavides','Javier Prado'],o:[-12.1219,-77.0298],d:ULIMA,w:[[-12.1272,-77.0105],[-12.0902,-76.9930]]},
+ {id:'t2',driver:'d',origin:'San Isidro · Av. Arequipa',dest:'Universidad de Lima',time:'08:00',seats:3,price:7,status:'Activo',members:['d'],stops:['Javier Prado'],o:[-12.0960,-77.0345],d:ULIMA,w:[[-12.0905,-77.0100]]},
+ {id:'t3',driver:'v',origin:'La Molina · Av. La Fontana',dest:'Universidad de Lima',time:'09:30',seats:2,price:5,status:'Activo',members:['v'],stops:['Av. Los Frutales'],o:[-12.0745,-76.9505],d:ULIMA,w:[[-12.0725,-76.9610]]},
+ {id:'t4',driver:'a',origin:'Surco · Óvalo Higuereta',dest:'Universidad de Lima',time:'12:30',seats:1,price:6,status:'Activo',members:['a'],stops:['Av. Primavera'],o:[-12.1305,-76.9985],d:ULIMA,w:[[-12.1115,-76.9880]]},
+ {id:'t5',driver:'d',origin:'San Borja · Av. San Luis',dest:'Universidad de Lima',time:'17:00',seats:2,price:6,status:'Activo',members:['d'],stops:['Javier Prado'],o:[-12.0985,-76.9985],d:ULIMA,w:[[-12.0890,-76.9850]]},
+ {id:'h1',driver:'a',origin:'Miraflores',dest:'Universidad de Lima',time:'07:15',seats:0,price:8,taxi:24,status:'Finalizado',members:['g','a'],date:'2026-10-12'},
+ {id:'h2',driver:'d',origin:'San Isidro',dest:'Universidad de Lima',time:'08:00',seats:0,price:7,taxi:22,status:'Finalizado',members:['g','d'],date:'2026-10-13'},
+ {id:'h3',driver:'a',origin:'Surco',dest:'Universidad de Lima',time:'12:30',seats:0,price:6,taxi:20,status:'Finalizado',members:['g','a'],date:'2026-10-14'}],
+messages:{t1:[{sender:'a',text:'¡Hola, Gabriel! Nos encontramos en el punto de partida.',time:'06:50'},{sender:'g',text:'Perfecto, estaré allí antes de las 7:15.',time:'06:52'}]},ratings:[]});
+
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY))||seed()}catch{db=seed()}
+let current=null;
+try{current=sessionStorage.getItem('rf-user')}catch{}
+let pending=null,otpExpired=false,view='login',selected='t1',query='',searched=false,score=0,ratingTarget=null,previous='home';
+let mapObj=null,carMarker=null,routeLine=null,simTimer=null,gpsWatch=null,pickO=null,pickD=null,pickMode='origin',pickOM=null,pickDM=null;
+const routeTried=new Set();
+
+const user=id=>db.users.find(u=>u.id===id), trip=id=>db.trips.find(t=>t.id===id);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}};
+const me=()=>user(current), role=()=>me()?.role||'pasajero', isDriver=()=>role()==='conductor';
+const homeView=()=>isDriver()?'dhome':'home';
+const active=t=>t&&(t.status==='Activo'||t.status==='En curso');
+const canChat=t=>active(t)&&t.members.includes(current);
+const passengers=t=>t.members.filter(id=>id!==t.driver);
+const historyTrips=()=>db.trips.filter(t=>t.status==='Finalizado'&&t.members.includes(current));
+const reputation=u=>u.scores.length?`<span class="stars">★</span> ${(u.scores.reduce((a,b)=>a+b,0)/u.scores.length).toFixed(1)} <small>(${u.scores.length} calificaciones)</small>`:'<span class="muted">Sin calificaciones registradas</span>';
+const roleBadge=r=>r==='conductor'?'<span class="rolebadge conductor">🚗 Conductor</span>':'<span class="rolebadge pasajero">🎒 Pasajero</span>';
+const statusPill=t=>`<span class="pill" style="${t.status==='En curso'?'background:#fff3dc;color:#8a5a00':t.status==='Finalizado'?'background:#eef1f3;color:#607783':''}">${esc(t.status)} · ${esc(t.time)}</span>`;
+
+// ---------- geometría ----------
+function hav(a,b){const R=6371000,r=x=>x*Math.PI/180,dl=r(b[0]-a[0]),dn=r(b[1]-a[1]);const h=Math.sin(dl/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function getPath(t){if(t.path&&t.path.length>1)return t.path;if(!t.o)return null;return [t.o,...(t.w||[]),t.d||ULIMA]}
+function pathLen(p){let s=0;for(let i=1;i<p.length;i++)s+=hav(p[i-1],p[i]);return s}
+function pointAt(p,f){const total=pathLen(p);let goal=total*Math.min(1,Math.max(0,f));for(let i=1;i<p.length;i++){const seg=hav(p[i-1],p[i]);if(goal<=seg||i===p.length-1){const k=seg?Math.min(1,goal/seg):1;return [p[i-1][0]+(p[i][0]-p[i-1][0])*k,p[i-1][1]+(p[i][1]-p[i-1][1])*k]}goal-=seg}return p[p.length-1]}
+function slicePath(p,f){const total=pathLen(p);let goal=total*f;const out=[p[0]];for(let i=1;i<p.length;i++){const seg=hav(p[i-1],p[i]);if(goal<=seg){out.push(pointAt([p[i-1],p[i]],seg?goal/seg:1));return out}goal-=seg;out.push(p[i])}return out}
+const km=m=>(m/1000).toFixed(1)+' km';
+
+async function fetchRoute(t){
+ if(t.path||!t.o||routeTried.has(t.id))return;routeTried.add(t.id);
+ const pts=[t.o,...(t.w||[]),t.d||ULIMA].map(p=>p[1]+','+p[0]).join(';');
+ try{
+  const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${pts}?overview=full&geometries=geojson`);
+  const j=await r.json();
+  if(j.code!=='Ok'||!j.routes?.[0])return;
+  const fresh=trip(t.id);if(!fresh||fresh.path)return;
+  fresh.path=j.routes[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+  fresh.km=j.routes[0].distance/1000;fresh.mins=Math.round(j.routes[0].duration/60);
+  if(fresh.status==='En curso'&&!fresh.gps){fresh.pos=pointAt(fresh.path,fresh.progress||0)}
+  save();
+  if(mapObj&&selected===t.id&&routeLine){routeLine.setLatLngs(fresh.path);updateLive()}
+ }catch{}
+}
+
+// ---------- utilidades UI ----------
+function toast(text){$('#toast').className='toast';$('#toast').textContent=text;clearTimeout(toast.t);toast.t=setTimeout(()=>{$('#toast').textContent='';$('#toast').className=''},3500)}
+function go(v,id){if(id)selected=id;stopSim();stopGps();previous=view;view=v;render();window.scrollTo(0,0)}
+function empty(title,text){return `<div class="card empty"><div class="symbol">◇</div><h3>${title}</h3><p class="muted">${text}</p></div>`}
+function heading(title,hu,sub=''){return `<div class="top"><div><div class="tag">${hu}</div><h1>${title}</h1><p class="muted">${esc(sub)}</p></div></div>`}
+function field(id,label,type='text',value='',extra=''){return `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="${type}" value="${esc(value)}" ${extra}><div class="error" id="err-${id}"></div></div>`}
+function errors(e){document.querySelectorAll('.error').forEach(n=>n.textContent='');document.querySelectorAll('input').forEach(n=>n.classList.remove('invalid'));Object.entries(e).forEach(([k,v])=>{const n=$('#err-'+k);if(n)n.textContent=v;const f=$('#'+k);if(f)f.classList.add('invalid')});const first=Object.keys(e)[0];if(first)$('#'+first)?.focus?.();return Object.keys(e).length>0}
+function institutional(email){return /^[^\s@]+@aloe\.ulima\.edu\.pe$/i.test(email)}
+function setCurrent(id){current=id;try{id?sessionStorage.setItem('rf-user',id):sessionStorage.removeItem('rf-user')}catch{}}
+
+function card(t){const u=user(t.driver);const mine=t.driver===current,member=t.members.includes(current)&&!mine;
+ const action=mine?`<button onclick="go('trip','${t.id}')">${t.status==='En curso'?'Ver viaje en curso →':'Gestionar viaje →'}</button>`:member?`<button onclick="go('trip','${t.id}')">Seguir mi viaje →</button>`:`<button class="secondary" onclick="go('detail','${t.id}')">Ver viaje →</button>`;
+ return `<article class="card"><div class="row between">${statusPill(t)}<span class="price">${t.price==null?'POR DEFINIR':money(t.price)}</span></div><div class="tripline"><div><small>PUNTO DE PARTIDA</small><br><strong>${esc(t.origin)}</strong></div><div><small>DESTINO</small><br><strong>${esc(t.dest)}</strong></div></div>${mine?`<p class="muted">${passengers(t).length} pasajero(s) confirmados · ${t.seats} asientos libres</p>`:`<div class="row"><span class="avatar">${esc(u.name[0])}</span><div><strong>${esc(u.name)}</strong><br>${reputation(u)}</div></div>`}<footer class="row between"><small>${t.seats} asientos disponibles</small>${action}</footer></article>`}
+
+function demo(){
+ let btns='';
+ if(current&&!isDriver())btns=`<button class="secondary" onclick="go('trip','t1')">Mi viaje (t1)</button><button class="secondary" onclick="go('chat','t2')">Chat sin permiso</button><button class="secondary" onclick="go('detail','missing')">Viaje no disponible</button><button class="secondary" onclick="rate('t1')">Calificar viaje activo</button><button class="secondary" onclick="newScenario()">Cuenta nueva sin registros</button><button class="secondary" onclick="simulateCompleted()">Cargar viaje finalizado de prueba</button>`;
+ if(current&&isDriver())btns=`<button class="secondary" onclick="jumpToEnd()">Saltar al destino (viaje en curso)</button><button class="secondary" onclick="go('chat','t2')">Chat sin permiso</button>`;
+ return `<details class="demo"><summary>Laboratorio de exposición · controles de datos, no funciones del producto</summary><p class="muted">Escenarios simulados para comprobar restricciones. Tip: abre otra pestaña, entra como pasajero (Gabriel) y aquí como conductor (Andrea): el pasajero ve el auto moverse en vivo.</p><button class="secondary" onclick="resetDemo()">Reiniciar demostración</button>${btns}</details>`}
+function resetDemo(){stopSim();stopGps();db=seed();save();setCurrent(null);pending=null;view='login';query='';searched=false;routeTried.clear();render();toast('Datos de demostración restablecidos')}
+function newScenario(){if(!user('new'))db.users.push({id:'new',role:'pasajero',name:'Gabriel (cuenta nueva)',email:'nuevo@aloe.ulima.edu.pe',pass:'RutaFlex1!',scores:[],completed:0});setCurrent('new');save();go('history')}
+function simulateCompleted(){if(db.trips.some(t=>t.id==='h-demo-'+current))return toast('El viaje de prueba ya está cargado');db.trips.push({id:'h-demo-'+current,driver:'v',origin:'La Molina',dest:'Universidad de Lima',time:'09:30',seats:0,price:5,taxi:15,status:'Finalizado',members:[current,'v'],date:'2026-10-15'});me().completed++;save();go('savings');toast('Viaje finalizado ficticio cargado; ahorro recalculado')}
+function logout(){stopSim();stopGps();setCurrent(null);go('login');toast('Sesión cerrada. Elige otro perfil.')}
+
+// ---------- render ----------
+function render(){
+ if(current&&!user(current))setCurrent(null);
+ if(mapObj){mapObj.remove();mapObj=null;carMarker=null;routeLine=null}
+ const navP=[['home','Buscar viajes'],['mytrips','Mis viajes'],['chats','Chat'],['history','Historial'],['savings','Ahorro'],['profile','Perfil'],['guide','Evidencia']];
+ const navC=[['dhome','Panel'],['publish','Publicar ruta'],['chats','Chat'],['history','Historial'],['earnings','Ganancias'],['profile','Perfil'],['guide','Evidencia']];
+ $('#nav').innerHTML=current?(isDriver()?navC:navP).map(([v,l])=>`<button class="${view===v?'active':''}" onclick="go('${v}')">${l}</button>`).join(''):`<button onclick="go('guide')">Guía y trazabilidad</button>`;
+ $('#who').innerHTML=current?`${roleBadge(role())}<small>${esc(me().name.split(' ')[0])}</small><button class="secondary" onclick="logout()">Cambiar perfil</button>`:'<span class="pill">Release 1.1 · Perfiles + mapa</span>';
+ let out='';
+ const driverOnly=['dhome','publish','earnings'],passOnly=['home','mytrips','savings','detail'];
+ if(current&&isDriver()&&passOnly.includes(view))view='dhome';
+ if(current&&!isDriver()&&driverOnly.includes(view))view='home';
+ if(['login','register','otp'].includes(view))out=auth();
+ else if(view==='guide')out=guide();
+ else if(!current){view='login';out=auth()}
+ else if(view==='home'){out=`<div class="hero"><div class="tag">Pasajero · Movilidad universitaria</div><h1>Hola, ${esc(me().name.split(' ')[0])}.<br>Tu próximo viaje empieza aquí.</h1><p class="muted">Busca un conductor que vaya a tu destino y reserva tu asiento.</p><form class="search" onsubmit="searchTrips(event)"><input aria-label="Destino" id="destination" placeholder="¿A dónde vas?" value="${esc(query)}"><button>Buscar viajes →</button></form><div id="searchError" class="error"></div></div><div class="top"><div><div class="tag">US05 · US17</div><h2>${searched?'Resultados de búsqueda':'Viajes disponibles'}</h2><p class="muted">${searched?'Destino: '+esc(query):'Listado general, sin recomendaciones ni filtros avanzados.'}</p></div></div>`;
+  const results=db.trips.filter(t=>t.status==='Activo'&&t.seats>0&&!t.members.includes(current)&&(!searched||norm(t.dest).includes(norm(query))));
+  out+=results.length?`<div class="grid">${results.map(card).join('')}</div>`:empty('No se encontraron viajes disponibles','Prueba con otro destino.')}
+ else if(view==='mytrips'){const ts=db.trips.filter(t=>active(t)&&t.members.includes(current)&&t.driver!==current);
+  out=heading('Mis viajes','Pasajero','Viajes reservados y en curso. Síguelos en el mapa.')+(ts.length?`<div class="grid">${ts.map(card).join('')}</div>`:empty('No tienes viajes reservados','Busca un viaje y reserva un asiento.'))}
+ else if(view==='dhome'){const ts=db.trips.filter(t=>t.driver===current&&active(t));const run=ts.find(t=>t.status==='En curso');
+  out=`<div class="hero"><div class="tag">Conductor</div><h1>Hola, ${esc(me().name.split(' ')[0])}.<br>${run?'Tienes un viaje en curso.':'Listo para salir.'}</h1><p class="muted">${esc(me().car||'Vehículo POR DEFINIR')} · ${reputation(me())}</p><div class="row" style="margin-top:16px">${run?`<button onclick="go('trip','${run.id}')">Ir al viaje en curso →</button>`:''}<button class="${run?'secondary':''}" onclick="go('publish')">+ Publicar ruta</button></div></div><div class="top"><div><div class="tag">US10</div><h2>Mis rutas activas</h2><p class="muted">Inicia un viaje para activar el mapa en vivo y el botón Terminar viaje.</p></div></div>`+(ts.length?`<div class="grid">${ts.map(card).join('')}</div>`:empty('No existen rutas activas','Publica una ruta para empezar.'))}
+ else if(view==='publish')out=heading('Comparte tu ruta','US09 · Conductor','Completa los datos y marca el recorrido en el mapa.')+`<div class="card form" style="max-width:820px"><form onsubmit="publish(event)" novalidate><div class="grid">${field('origin','Punto de partida *')}${field('dest','Destino *','text','Universidad de Lima')}${field('time','Hora de salida *','time')}${field('seats','Asientos disponibles *','number','','min="1" step="1"')}</div>${field('price','Precio por asiento · dato mock opcional','number','','min="0" step="0.50"')}<label>Recorrido en el mapa *</label><div class="btnrow"><button type="button" id="pickO" onclick="setPick('origin')">📍 Marcar partida</button><button type="button" class="secondary" id="pickD" onclick="setPick('dest')">🎓 Mover destino</button></div><div id="map" class="leaf small" data-mode="pick"></div><div class="error" id="err-map"></div><p class="muted">Haz clic en el mapa para marcar el punto de partida. El destino viene marcado en la Universidad de Lima; puedes moverlo.</p><button class="full">Publicar ruta</button></form></div>`;
+ else if(view==='detail')out=detail();
+ else if(view==='trip')out=tripView();
+ else if(view==='profile')out=heading('Mi perfil','US17','Información de consulta. Sin edición de perfil.')+profile(me());
+ else if(view==='chats'){const ts=db.trips.filter(canChat);
+  out=heading('Conversaciones','US13 · US14','Solo viajes activos en los que participas.')+(ts.length?ts.map(t=>`<div class="card top"><div><h3>${esc(t.origin)} → ${esc(t.dest)}</h3><p class="muted">${t.driver===current?passengers(t).map(id=>esc(user(id).name)).join(', ')||'Sin pasajeros aún':esc(user(t.driver).name)} · ${esc(t.time)}</p></div><button onclick="go('chat','${t.id}')">Abrir chat</button></div>`).join(''):empty('No tienes chats habilitados','Debes formar parte de un viaje activo.'))}
+ else if(view==='chat')out=chat();
+ else if(view==='history'){const ts=historyTrips();
+  out=heading('Tu historial','US21 · US18','Lista simple de viajes anteriores.')+(ts.length?ts.slice().reverse().map(t=>{const drv=t.driver===current,ps=passengers(t);return `<div class="card top" style="margin-bottom:14px"><div><span class="pill" style="background:#eef1f3;color:#607783">Finalizado</span><h3>${esc(t.origin)} → ${esc(t.dest)}</h3><p class="muted">${esc(t.date)} · ${drv?'Tú como conductor · '+ps.length+' pasajero(s)':esc(user(t.driver).name)}${t.km?' · '+t.km.toFixed(1)+' km':''}</p></div>${drv?(ps.length?`<button class="secondary" onclick="rate('${t.id}')">Calificar pasajero</button>`:''):`<button class="secondary" onclick="rate('${t.id}')">Calificar conductor</button>`}</div>`}).join(''):empty('El usuario todavía no tiene viajes registrados','Tus viajes anteriores aparecerán aquí.'))}
+ else if(view==='savings')out=savings();
+ else if(view==='earnings')out=earnings();
+ $('#app').innerHTML=out+demo();
+ if(view==='chat')scrollChat();
+ afterRender();
+}
+
+// ---------- mapa ----------
+const carIcon=()=>L.divIcon({className:'',html:'<div class="carpin">🚗</div>',iconSize:[28,28],iconAnchor:[14,14]});
+const destIcon=()=>L.divIcon({className:'',html:'<div class="destpin">🎓</div>',iconSize:[28,28],iconAnchor:[14,24]});
+const originIcon=()=>L.divIcon({className:'',html:'<div class="destpin">📍</div>',iconSize:[28,28],iconAnchor:[14,26]});
+function baseMap(el){
+ if(!window.L){el.innerHTML='<div class="mapfallback">🗺️<br>No se pudo cargar el mapa interactivo.<br><small>Requiere conexión a internet (Leaflet + mapas de OpenStreetMap).</small></div>';return null}
+ const m=L.map(el,{scrollWheelZoom:false});
+ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(m);
+ setTimeout(()=>m.invalidateSize(),60);
+ return m}
+function afterRender(){
+ const el=$('#map');if(!el)return;
+ if(el.dataset.mode==='pick'){mapObj=baseMap(el);if(!mapObj)return;pickO=null;pickD=ULIMA;pickMode='origin';
+  mapObj.setView([-12.105,-77.0],13);
+  pickDM=L.marker(ULIMA,{icon:destIcon()}).addTo(mapObj).bindTooltip('Destino');pickOM=null;
+  mapObj.on('click',e=>{const p=[+e.latlng.lat.toFixed(5),+e.latlng.lng.toFixed(5)];
+   if(pickMode==='origin'){pickO=p;if(pickOM)pickOM.setLatLng(p);else pickOM=L.marker(p,{icon:originIcon()}).addTo(mapObj).bindTooltip('Partida');$('#err-map').textContent='';setPick('dest')}
+   else{pickD=p;pickDM.setLatLng(p)}});
+  return}
+ const t=trip(selected);if(!t)return;const p=getPath(t);
+ if(!p){el.innerHTML='<div class="mapfallback">Esta ruta no tiene coordenadas registradas.<br><small>Las rutas antiguas sin mapa: POR DEFINIR.</small></div>';return}
+ mapObj=baseMap(el);if(!mapObj)return;
+ routeLine=L.polyline(p,{color:'#008b72',weight:5,opacity:.85}).addTo(mapObj);
+ L.marker(t.o,{icon:originIcon()}).addTo(mapObj).bindTooltip('Partida: '+t.origin);
+ L.marker(t.d||ULIMA,{icon:destIcon()}).addTo(mapObj).bindTooltip('Destino: '+t.dest);
+ (t.w||[]).forEach((w,i)=>L.circleMarker(w,{radius:6,color:'#16354a',fillColor:'#fff',fillOpacity:1,weight:3}).addTo(mapObj).bindTooltip('Parada: '+(t.stops?.[i]||'—')));
+ if(t.status==='En curso'&&t.pos)carMarker=L.marker(t.pos,{icon:carIcon(),zIndexOffset:1000}).addTo(mapObj).bindTooltip('Conductor');
+ mapObj.fitBounds(routeLine.getBounds(),{padding:[30,30]});
+ fetchRoute(t);
+ updateLive();
+}
+function setPick(m){pickMode=m;const a=$('#pickO'),b=$('#pickD');if(!a)return;a.className=m==='origin'?'':'secondary';b.className=m==='dest'?'':'secondary'}
+
+// ---------- viaje en vivo ----------
+function liveNumbers(t){const p=getPath(t);if(!p)return {rem:0,pct:0};
+ const total=pathLen(p);let rem,pct;
+ if(t.status==='Finalizado')return {rem:0,pct:100,total};
+ if(t.status!=='En curso')return {rem:total,pct:0,total};
+ if(t.gps&&t.pos){rem=hav(t.pos,t.d||ULIMA);pct=Math.max(0,Math.min(100,100*(1-rem/hav(t.o,t.d||ULIMA))))}
+ else{rem=total*(1-(t.progress||0));pct=100*(t.progress||0)}
+ return {rem,pct,total}}
+function updateLive(){const t=trip(selected);if(!t||view!=='trip')return;
+ const n=liveNumbers(t);
+ if($('#live-rem'))$('#live-rem').textContent=km(n.rem);
+ if($('#live-pct'))$('#live-pct').textContent=Math.round(n.pct)+'%';
+ if($('#live-eta'))$('#live-eta').textContent=t.status==='En curso'?Math.max(1,Math.round(n.rem/1000*2.4))+' min':'—';
+ if($('#live-bar'))$('#live-bar').style.width=n.pct+'%';
+ if(mapObj&&t.status==='En curso'&&t.pos){if(carMarker)carMarker.setLatLng(t.pos);else carMarker=L.marker(t.pos,{icon:carIcon(),zIndexOffset:1000}).addTo(mapObj)}
+ const b=$('#endbtn');if(b){b.disabled=!t.arrived;$('#endhint').innerHTML=t.arrived?'✅ Llegaste al destino. Ya puedes terminar el viaje.':'Se habilita al llegar a la ubicación de destino.'}
+ const s=$('#simbtn');if(s)s.textContent=simTimer?'⏸ Pausar simulación':(t.progress>0?'▶ Continuar simulación':'▶ Simular recorrido');
+ const g=$('#gpsbtn');if(g)g.textContent=gpsWatch!==null?'📡 Detener GPS':'📡 Usar mi GPS real';
+}
+function tripView(){const t=trip(selected);
+ if(!t)return `<button class="secondary back" onclick="go('${homeView()}')">← Volver</button>`+empty('Viaje no encontrado','El viaje no existe.');
+ const drv=t.driver===current,member=t.members.includes(current);
+ if(!drv&&!member)return `<button class="secondary back" onclick="go('${homeView()}')">← Volver</button>`+heading('Acceso restringido','Viaje')+empty('No participas en este viaje','Reserva un asiento para seguirlo en el mapa.');
+ const u=user(t.driver),ps=passengers(t),n=liveNumbers(t);
+ const left=`<div class="card"><div class="row between">${statusPill(t)}<span class="price">${t.price==null?'POR DEFINIR':money(t.price)}</span></div><div id="map" class="leaf"></div><div class="legend"><span>📍 Partida</span><span>🎓 Destino</span><span>◯ Paradas</span><span>🚗 Conductor</span><span>— Ruta</span></div><div style="margin-top:14px"><small>AVANCE DEL VIAJE</small><div class="progress"><div id="live-bar" style="width:${n.pct}%"></div></div></div><div class="stats"><div><small>Avance</small><strong id="live-pct">${Math.round(n.pct)}%</strong></div><div><small>Distancia restante</small><strong id="live-rem">${km(n.rem)}</strong></div><div><small>Llegada estimada</small><strong id="live-eta">—</strong></div></div></div>`;
+ let right='';
+ if(drv){
+  const plist=`<h3>Pasajeros (${ps.length})</h3>${ps.length?`<ul class="passlist">${ps.map(id=>`<li><span class="avatar">${esc(user(id).name[0])}</span><div><strong>${esc(user(id).name)}</strong><br>${reputation(user(id))}</div></li>`).join('')}</ul>`:'<p class="muted">Aún no hay pasajeros. Puedes salir igual.</p>'}`;
+  if(t.status==='Activo')right=`<div class="card"><div class="tag">Conductor</div><h2>Listo para salir</h2><p class="muted">Salida ${esc(t.time)} · ${esc(me().car||'Vehículo POR DEFINIR')}</p>${plist}<button class="full" onclick="startTrip()">🚦 Iniciar viaje</button>${canChat(t)?`<button class="secondary full" style="margin-top:10px" onclick="go('chat','${t.id}')">Abrir chat del viaje</button>`:''}</div>`;
+  else if(t.status==='En curso')right=`<div class="card"><div class="tag">Viaje en curso</div><h2>Rumbo a ${esc(t.dest)}</h2><p class="muted">Avanza hasta el destino. Para la exposición usa la simulación; en el celular puedes usar el GPS real.</p><div class="btnrow"><button class="secondary" id="simbtn" onclick="toggleSim()">▶ Simular recorrido</button><button class="secondary" id="gpsbtn" onclick="toggleGps()">📡 Usar mi GPS real</button></div>${plist}<button class="full finish" id="endbtn" onclick="endTrip()" disabled>🏁 Terminar viaje</button><p class="muted" id="endhint" style="margin-top:10px">Se habilita al llegar a la ubicación de destino.</p><button class="secondary full" onclick="go('chat','${t.id}')">Abrir chat del viaje</button></div>`;
+  else right=`<div class="card"><div class="tag">Finalizado</div><h2>Viaje terminado</h2><p class="muted">${esc(t.date)}${t.ended?' · '+esc(t.ended):''}</p><p>${ps.length} pasajero(s) · ${t.km?t.km.toFixed(1)+' km':''}</p><p>Ingresos: <strong>${money((t.price||0)*ps.length)}</strong></p><button class="full" onclick="go('history')">Ver historial</button></div>`;
+ }else{
+  const st=t.status==='Activo'?`<div class="alert">⏳ Esperando a que ${esc(u.name.split(' ')[0])} inicie el viaje (${esc(t.time)}).</div>`:t.status==='En curso'?`<div class="alert">🚗 Tu conductor va en camino. El mapa se actualiza en vivo.</div>`:`<div class="alert">🏁 Viaje terminado. ¡Llegaste a ${esc(t.dest)}!</div><button class="full" onclick="rate('${t.id}')">Calificar a ${esc(u.name.split(' ')[0])}</button>`;
+  right=`<div class="card"><div class="tag">Pasajero</div><h2>Tu viaje</h2>${st}${canChat(t)?`<button class="secondary full" onclick="go('chat','${t.id}')">Abrir chat del viaje</button>`:''}</div>${profile(u)}`;
+ }
+ return `<button class="secondary back" onclick="go('${drv?'dhome':'mytrips'}')">← Volver</button>`+heading(drv?'Gestionar viaje':'Seguir mi viaje','Mapa interactivo',t.origin+' → '+t.dest)+`<div class="split">${left}<div>${right}</div></div>`}
+
+function startTrip(){const t=trip(selected);if(!t||t.driver!==current||t.status!=='Activo')return;
+ if(db.trips.some(x=>x.driver===current&&x.status==='En curso'))return toast('Ya tienes otro viaje en curso. Termínalo primero.');
+ const p=getPath(t);t.status='En curso';t.started=Date.now();t.progress=0;t.gps=false;t.arrived=false;t.pos=p?p[0]:null;save();render();toast('Viaje iniciado. Los pasajeros ya ven tu ubicación.')}
+function toggleSim(){if(simTimer)return stopSim(),updateLive();stopGps();const t=trip(selected);if(!t||t.status!=='En curso')return;
+ if(t.progress>=1){t.arrived=true;save();return updateLive()}
+ t.gps=false;
+ simTimer=setInterval(()=>{const t=trip(selected);if(!t||t.status!=='En curso'){stopSim();return}
+  const p=getPath(t);t.progress=Math.min(1,(t.progress||0)+0.008);t.pos=pointAt(p,t.progress);t.arrived=t.progress>=1;save();
+  if(mapObj&&carMarker&&!mapObj.getBounds().contains(carMarker.getLatLng()))mapObj.panTo(t.pos);
+  updateLive();
+  if(t.arrived){stopSim();updateLive();toast('🏁 Llegaste al destino. Ya puedes terminar el viaje.')}},250);
+ updateLive()}
+function stopSim(){if(simTimer){clearInterval(simTimer);simTimer=null}}
+function toggleGps(){if(gpsWatch!==null){stopGps();return updateLive()}
+ if(!navigator.geolocation)return toast('Tu navegador no permite geolocalización.');
+ stopSim();
+ gpsWatch=navigator.geolocation.watchPosition(pos=>{const t=trip(selected);if(!t||t.status!=='En curso')return stopGps();
+  t.gps=true;t.pos=[pos.coords.latitude,pos.coords.longitude];const rem=hav(t.pos,t.d||ULIMA);t.arrived=rem<=150;save();
+  if(mapObj)mapObj.panTo(t.pos);updateLive()},err=>{stopGps();updateLive();toast('No se pudo obtener tu ubicación: '+err.message)},{enableHighAccuracy:true,maximumAge:3000});
+ updateLive();toast('GPS activado. Terminar viaje se habilita a menos de 150 m del destino.')}
+function stopGps(){if(gpsWatch!==null){navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null}}
+function jumpToEnd(){const t=db.trips.find(x=>x.driver===current&&x.status==='En curso');if(!t)return toast('No tienes un viaje en curso. Inicia uno primero.');
+ stopSim();stopGps();const p=getPath(t);t.progress=1;t.gps=false;t.pos=p[p.length-1];t.arrived=true;save();go('trip',t.id)}
+function endTrip(){const t=trip(selected);if(!t||t.driver!==current||t.status!=='En curso')return;
+ if(!t.arrived)return toast('Aún no llegas al destino.');
+ stopSim();stopGps();
+ const p=getPath(t),dist=t.km||(p?pathLen(p)/1000:0),ps=passengers(t),mins=t.started?Math.max(1,Math.round((Date.now()-t.started)/60000)):null;
+ t.status='Finalizado';t.date=new Date().toISOString().slice(0,10);t.ended=new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});t.km=dist;t.taxi=Math.max((t.price||0)+5,Math.round(8+dist*2.2));
+ t.members.forEach(id=>{const u=user(id);if(u)u.completed++});save();render();
+ $('#modal').innerHTML=`<div class="overlay"><div class="card modal" role="dialog" aria-modal="true"><div class="tag">Viaje terminado</div><h2>🏁 ¡Llegaste a ${esc(t.dest)}!</h2><div class="stats" style="margin:16px 0"><div><small>Distancia</small><strong>${dist.toFixed(1)} km</strong></div><div><small>Duración</small><strong>${mins?mins+' min':'—'}</strong></div><div><small>Pasajeros</small><strong>${ps.length}</strong></div></div><p>Ingresos del viaje: <strong>${money((t.price||0)*ps.length)}</strong></p><p class="muted">Los pasajeros ya pueden calificarte desde su historial.</p><div class="row"><button onclick="closeModal();go('history')">Ver historial</button><button class="secondary" onclick="closeModal();go('dhome')">Volver al panel</button></div></div></div>`;
+ toast('Viaje terminado y registrado en el historial.')}
+
+// sincronización entre pestañas (pasajero ve al conductor en vivo)
+window.addEventListener('storage',e=>{if(e.key!==KEY||!e.newValue)return;let prev=trip(selected)?.status;try{db=JSON.parse(e.newValue)}catch{return}
+ if(!current||!user(current))return;
+ if(view==='trip'){const t=trip(selected);if(!t)return render();if(t.status!==prev)render();else{if(routeLine&&t.path&&routeLine.getLatLngs().length!==t.path.length)routeLine.setLatLngs(t.path);updateLive()}}
+ else if(['mytrips','dhome','home','chats','history'].includes(view))render()});
+
+// ---------- autenticación ----------
+function auth(){let form='';
+ if(view==='login')form=`<div class="tag">US01</div><h2>Inicia sesión</h2><p class="muted">Ingresa con tu correo universitario.</p><form onsubmit="login(event)" novalidate>${field('email','Correo institucional','email')}${field('password','Contraseña','password')}<button class="full">Iniciar sesión</button></form><button class="link full" onclick="go('register')">¿Primera vez? Regístrate</button><div class="alert"><strong>Perfiles ficticios de exposición</strong> · contraseña: RutaFlex1!<div class="rolepick"><button class="secondary" onclick="quickLogin('g')"><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button><button class="secondary" onclick="quickLogin('a')"><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button></div></div>`;
+ if(view==='register')form=`<div class="tag">US02 · Paso 1 de 2</div><h2>Crea tu cuenta</h2><form onsubmit="register(event)" novalidate>${field('name','Nombre *')}${field('email','Correo institucional *','email')}${field('password','Contraseña *','password')}<div class="field"><label for="role">Tipo de perfil *</label><select id="role" onchange="$('#carwrap').style.display=this.value==='conductor'?'block':'none'"><option value="pasajero">🎒 Pasajero — busco viajes</option><option value="conductor">🚗 Conductor — ofrezco viajes</option></select></div><div id="carwrap" style="display:none">${field('car','Vehículo y placa *','text','','placeholder="Ej. Sedán rojo · ABC-123"')}</div><p class="muted">Universidad de Lima · dominio demo: aloe.ulima.edu.pe. Lista completa de dominios y política de contraseña: POR DEFINIR.</p><button class="full">Continuar a verificación</button></form><button class="link full" onclick="go('login')">Ya tengo una cuenta</button>`;
+ if(view==='otp')form=`<div class="tag">US02 · Paso 2 de 2</div><h2>Verifica tu correo</h2><p class="muted">Envío simulado a ${esc(pending?.email)}.</p><div class="alert">Código ficticio: <strong>123456</strong><br>Vigencia y longitud productivas: POR DEFINIR.</div><form onsubmit="verify(event)" novalidate>${field('code','Código de verificación','text','','inputmode="numeric"')}<button class="full">Verificar y registrar</button></form><button class="link" onclick="otpExpired=true;toast('Código marcado como vencido para la prueba')">Simular código vencido</button><button class="link" onclick="otpExpired=false;toast('Nuevo código simulado: 123456')">Simular nuevo código</button><button class="link" onclick="go('register')">Volver</button>`;
+ return `<div class="auth"><div class="authaside"><span class="pill">Carpooling universitario</span><h1 style="margin-top:20px">Mismo destino.<br><span style="color:var(--green)">Mejor camino.</span></h1><p class="muted">Conecta con estudiantes, comparte viajes y conoce tu ahorro.</p><div class="note"><strong>Dos perfiles, un mismo trayecto.</strong><p class="muted">Pasajero: busca, reserva y sigue el viaje en el mapa.<br>Conductor: publica, inicia y termina el viaje al llegar.</p><small>Prototipo académico. Todos los usuarios y viajes son ficticios.</small></div></div><div class="card authform">${form}</div></div>`}
+function quickLogin(id){setCurrent(id);go(homeView())}
+function login(e){e.preventDefault();const email=$('#email').value.trim().toLowerCase(),pass=$('#password').value,err={};
+ if(!institutional(email))err.email='Solo se admite el dominio institucional de demostración aloe.ulima.edu.pe.';
+ if(!pass)err.password='Ingresa tu contraseña.';if(errors(err))return;
+ const u=db.users.find(u=>u.email===email&&u.pass===pass);if(!u)return errors({password:'Correo o contraseña incorrectos.'});
+ setCurrent(u.id);go(homeView())}
+function register(e){e.preventDefault();const name=$('#name').value.trim(),email=$('#email').value.trim().toLowerCase(),pass=$('#password').value,r=$('#role').value,car=$('#car').value.trim(),err={};
+ if(!name)err.name='Completa tu nombre.';
+ if(!institutional(email))err.email='Utiliza un correo institucional del dominio de demostración.';else if(db.users.some(u=>u.email===email))err.email='Este correo ya está registrado.';
+ if(!pass.trim())err.password='Completa tu contraseña.';
+ if(r==='conductor'&&!car)err.car='Los conductores deben registrar su vehículo.';
+ if(errors(err))return;pending={name,email,pass,role:r,...(r==='conductor'?{car}:{})};otpExpired=false;go('otp')}
+function verify(e){e.preventDefault();if(!pending)return go('register');
+ if(otpExpired)return errors({code:'El código está vencido. Solicita un nuevo código simulado.'});
+ if($('#code').value.trim()!=='123456')return errors({code:'Código inválido.'});
+ db.users.push({...pending,id:'u'+Date.now(),scores:[],completed:0});save();pending=null;go('login');toast('Registro exitoso. Ya puedes iniciar sesión.')}
+function searchTrips(e){e.preventDefault();query=$('#destination').value.trim();if(!query){$('#searchError').textContent='Ingresa un destino.';return}searched=true;render()}
+function publish(e){e.preventDefault();const origin=$('#origin').value.trim(),dest=$('#dest').value.trim(),time=$('#time').value,seats=Number($('#seats').value),p=$('#price').value,err={};
+ if(!origin)err.origin='Completa el punto de partida.';if(!dest)err.dest='Completa el destino.';if(!time)err.time='Selecciona una hora.';
+ if(!Number.isInteger(seats)||seats<1)err.seats='Ingresa un número entero positivo de asientos.';
+ if(p!==''&&Number(p)<0)err.price='El precio no puede ser negativo.';
+ if(window.L&&!pickO)err.map='Haz clic en el mapa para marcar el punto de partida.';
+ if(errors(err))return;
+ db.trips.push({id:'r'+Date.now(),driver:current,origin,dest,time,seats,price:p===''?null:Number(p),status:'Activo',members:[current],stops:[],o:pickO,d:pickD||ULIMA,w:[]});
+ save();go('dhome');toast('Ruta publicada. Ya es visible para los pasajeros.')}
+function profile(u){return `<div class="card"><div class="row"><span class="avatar">${esc(u.name[0])}</span><div><h2>${esc(u.name)}</h2><p class="muted">Universidad de Lima · usuario ficticio</p></div></div><div style="margin:14px 0">${roleBadge(u.role)}</div>${u.role==='conductor'?`<p>🚗 ${esc(u.car||'Vehículo POR DEFINIR')}</p>`:''}<div style="margin:14px 0">${reputation(u)}</div><p>${u.completed} viajes completados</p><small>La reputación se recalcula con las evaluaciones mock registradas.</small></div>`}
+function detail(){const t=trip(selected);
+ if(!t||t.status!=='Activo'||(t.seats<1&&!t.members.includes(current)))return `<button class="secondary back" onclick="go('home')">← Volver a búsqueda</button>`+heading('Viaje no disponible','US06')+empty('Este viaje no puede consultarse','La ruta no está disponible o no tiene asientos.');
+ const u=user(t.driver),member=t.members.includes(current);
+ return `<button class="secondary back" onclick="go('home')">← Volver a búsqueda</button>`+heading('Detalles del viaje','US06 · US17',t.origin+' → '+t.dest)+`<div class="split"><div class="card"><div class="row between">${statusPill(t)}<span class="price">${t.price==null?'Precio: POR DEFINIR':money(t.price)+' / asiento'}</span></div><div id="map" class="leaf small"></div><div class="grid"><div><small>SALIDA</small><h3>${esc(t.time)}</h3></div><div><small>DISPONIBILIDAD</small><h3>${t.seats} asientos</h3></div><div><small>VEHÍCULO</small><p>${esc(u.car||'POR DEFINIR')}</p></div><div><small>PARADAS</small><p>${esc(t.stops?.length?t.stops.join(' · '):'POR DEFINIR')}</p></div></div>${member?`<button class="full" onclick="go('trip','${t.id}')">Seguir mi viaje en el mapa</button>`:`<button class="full" onclick="reserve('${t.id}')">Reservar asiento</button>`}<button class="secondary full" style="margin-top:10px" onclick="go('chat','${t.id}')">${canChat(t)?'Abrir chat del viaje':'Consultar acceso al chat'}</button></div><div>${profile(u)}</div></div>`}
+function reserve(id){const t=trip(id);if(!t||t.status!=='Activo'||t.seats<1)return toast('Este viaje ya no tiene asientos.');if(t.members.includes(current))return go('trip',id);
+ t.seats--;t.members.push(current);(db.messages[t.id]??=[]);save();toast('Asiento reservado. Ya puedes seguir el viaje.');go('trip',id)}
+function chat(){const t=trip(selected);
+ if(!canChat(t))return `<button class="secondary back" onclick="go('chats')">← Volver</button>`+heading('Chat no habilitado','US13 · US14')+empty('Acceso restringido','Solo los participantes de un viaje activo pueden consultar y enviar mensajes.');
+ const msgs=db.messages[t.id]||[],other=t.driver===current?(passengers(t)[0]?user(passengers(t)[0]):null):user(t.driver);
+ return `<button class="secondary back" onclick="go('trip','${t.id}')">← Volver al viaje</button>`+heading('Chat del viaje','US13 · US14',t.origin+' → '+t.dest)+`<div class="card form"><div class="row"><span class="avatar">${esc(other?other.name[0]:'?')}</span><div><strong>${esc(other?other.name:'Sin pasajeros todavía')}</strong><br><small>Conversación asociada al viaje ${esc(t.id)} · simulada</small></div></div><div class="messages" id="messages">${msgs.length?msgs.map(m=>`<div class="bubble ${m.sender===current?'me':''}"><small>${esc(user(m.sender)?.name||'Usuario')}</small>${esc(m.text)}<small>${esc(m.time)} · Entregado (simulado)</small></div>`).join(''):'<p class="muted">Todavía no hay mensajes. Inicia la conversación.</p>'}</div><form class="search" onsubmit="send(event)"><input id="message" aria-label="Mensaje" placeholder="Escribe un mensaje…" autocomplete="off"><button>Enviar →</button></form><div class="error" id="err-message"></div><button class="link" onclick="reply()">Simular respuesta del otro participante</button></div>`}
+function scrollChat(){const n=$('#messages');if(n)n.scrollTop=n.scrollHeight}
+const nowTime=()=>new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+function send(e){e.preventDefault();const t=trip(selected);if(!canChat(t)){render();return toast('Envío restringido: chat no habilitado.')}
+ const text=$('#message').value.trim();if(!text)return errors({message:'Escribe un mensaje antes de enviar.'});
+ (db.messages[t.id]??=[]).push({sender:current,text,time:nowTime()});save();render();$('#message')?.focus()}
+function reply(){const t=trip(selected);if(!canChat(t))return;const other=t.members.find(id=>id!==current);if(!other)return toast('No hay otro participante en esta ruta.');
+ (db.messages[t.id]??=[]).push({sender:other,text:'¡Perfecto! Coordinamos en el punto de partida.',time:nowTime()});save();render()}
+
+// ---------- calificaciones ----------
+function rate(id){const t=trip(id);
+ if(!t||t.status!=='Finalizado')return toast('Calificación rechazada: el viaje todavía no ha finalizado.');
+ if(!t.members.includes(current))return toast('Solo puedes calificar viajes en los que participaste.');
+ ratingTarget=t.driver===current?passengers(t)[0]:t.driver;if(!ratingTarget)return toast('Este viaje no tuvo pasajeros.');
+ selected=id;score=0;
+ $('#modal').innerHTML=`<div class="overlay"><div class="card modal" role="dialog" aria-modal="true" aria-labelledby="rate-title"><div class="tag">US18</div><h2 id="rate-title">Califica ${t.driver===current?'a tu pasajero':'tu viaje'}</h2><p class="muted">${esc(user(ratingTarget).name)} · ${esc(t.origin)} → ${esc(t.dest)}</p><div class="row" role="group" aria-label="Puntuación de 1 a 5">${[1,2,3,4,5].map(n=>`<button class="starbtn" id="star${n}" aria-label="${n} estrellas" onclick="choose(${n})">★</button>`).join('')}</div><div id="rate-error" class="error"></div><p class="muted">Selecciona entre 1 y 5 estrellas.</p><div class="row"><button onclick="submitRating()">Registrar evaluación</button><button class="secondary" onclick="closeModal()">Volver</button></div><small>Política de evaluaciones repetidas: POR DEFINIR en IS2.</small></div></div>`;
+ $('#star1').focus()}
+function choose(n){score=n;[1,2,3,4,5].forEach(i=>$('#star'+i).classList.toggle('selected',i<=n))}
+function closeModal(){$('#modal').innerHTML=''}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+function submitRating(){const t=trip(selected);
+ if(t?.status!=='Finalizado'||!t.members.includes(current)){closeModal();return toast('Calificación no permitida.')}
+ if(!Number.isInteger(score)||score<1||score>5){$('#rate-error').textContent='Selecciona una puntuación válida entre 1 y 5.';return}
+ user(ratingTarget).scores.push(score);db.ratings.push({trip:t.id,from:current,to:ratingTarget,score});save();closeModal();render();toast('Evaluación registrada. Reputación actualizada.')}
+
+function savings(){const ts=historyTrips().filter(t=>t.driver!==current),total=ts.reduce((a,t)=>a+(t.taxi-t.price),0);
+ return heading('Cada viaje cuenta','US22','Ahorro económico estimado con datos ficticios.')+(ts.length?`<div class="split"><div class="card"><div class="tag">Ahorro acumulado</div><div class="metric">${money(total)}</div><p class="muted">En ${ts.length} viajes compartidos finalizados.</p><div class="alert">Ahorro = tarifa estimada de taxi − costo compartido</div><small>Tarifas de taxi simuladas. Proveedor, metodología de estimación y tratamiento de diferencias negativas: POR DEFINIR.</small></div><div class="card"><h3>Cálculo básico por viaje</h3>${ts.map(t=>`<div class="row between" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><strong>${esc(t.origin)}</strong><br><small>${money(t.taxi)} − ${money(t.price)}</small></div><strong>${money(t.taxi-t.price)}</strong></div>`).join('')}</div></div>`:empty('No existen datos suficientes para el cálculo','Aún no tienes viajes compartidos registrados.'))}
+function earnings(){const ts=historyTrips().filter(t=>t.driver===current),total=ts.reduce((a,t)=>a+(t.price||0)*passengers(t).length,0);
+ return heading('Tus ganancias','Conductor','Ingresos estimados por asientos compartidos (datos ficticios).')+(ts.length?`<div class="split"><div class="card"><div class="tag">Total acumulado</div><div class="metric">${money(total)}</div><p class="muted">En ${ts.length} viajes terminados.</p><div class="alert">Ingreso = precio por asiento × pasajeros</div><small>Pagos reales y comisiones: POR DEFINIR.</small></div><div class="card"><h3>Detalle por viaje</h3>${ts.slice().reverse().map(t=>`<div class="row between" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><strong>${esc(t.origin)}</strong><br><small>${esc(t.date)} · ${money(t.price||0)} × ${passengers(t).length}</small></div><strong>${money((t.price||0)*passengers(t).length)}</strong></div>`).join('')}</div></div>`:empty('Aún no tienes viajes terminados','Inicia y termina un viaje para ver tus ganancias.'))}
+
+const matrix=[
+['US01','Iniciar sesión con correo universitario','Login','Correo institucional + contraseña correcta; dominio inválido; contraseña incorrecta','Acceso al inicio según perfil o rechazo con mensaje','pp. 29, 48, 50'],
+['US05','Buscar viajes disponibles','Inicio pasajero / búsqueda','Buscar Universidad de Lima; buscar Cusco','Listado coherente o mensaje sin viajes','pp. 29, 50'],
+['US09','Publicar ruta básica','Publicar ruta (conductor)','Completar origen, destino, hora, asientos y punto en mapa; enviar formulario vacío','Registro visible o bloqueo con campos pendientes','pp. 29, 50'],
+['US13','Chat básico entre usuarios','Detalle / conversaciones / chat','Abrir t1 participante; abrir t2 sin permiso','Canal de viaje activo solo para participantes','pp. 29, 50'],
+['US17','Ver reputación de usuarios','Tarjetas / detalle / perfil','Consultar Andrea; consultar Valeria','Reputación visible o ausencia de calificaciones','pp. 29–30'],
+['US21','Ver historial simple','Historial','Cuenta Gabriel; cuenta nueva sin registros','Lista de viajes del usuario o estado vacío','p. 29'],
+['US02','Registro con correo institucional','Registro / OTP','Correo único; duplicado; dominio inválido; elegir pasajero o conductor (con vehículo); OTP correcto, incorrecto o vencido','Registro verificado simulado o rechazo','pp. 33, 48, 52'],
+['US06','Ver detalles del viaje','Detalle','Seleccionar viaje; escenario no disponible','Conductor, ruta en mapa interactivo, hora, asientos, vehículo, paradas, precio','pp. 33, 49'],
+['US10','Ver rutas publicadas','Panel conductor','Publicar ruta; consultar cuenta sin publicaciones','Solo rutas del conductor o estado vacío','p. 33'],
+['US14','Enviar mensajes en chat','Chat','Enviar texto; simular respuesta; acceder sin permiso','Mensaje registrado y visible; envío restringido sin canal','p. 33; US13 p. 50'],
+['US18','Sistema de calificaciones','Historial / modal','Pasajero califica conductor; conductor califica pasajero; intentar activo','Almacenar 1–5 y actualizar reputación; rechazar inválido o no finalizado','pp. 33, 49–50'],
+['US22','Visualizar ahorro básico','Ahorro / Ganancias','Consultar con historial; cuenta nueva; terminar un viaje','Diferencia taxi − costo compartido; ingresos del conductor','pp. 33, 49'],
+['EXT-1','Perfiles pasajero y conductor','Login / navegación','Entrar como Gabriel y como Andrea','Menú y pantallas distintas según el rol','Extensión R1.1'],
+['EXT-2','Mapa interactivo del viaje','Detalle / Seguir viaje / Gestionar viaje','Abrir t1; iniciar viaje; simular recorrido; usar GPS','Ruta, paradas y posición del conductor en vivo','Extensión R1.1'],
+['EXT-3','Terminar viaje al llegar','Gestionar viaje (conductor)','Intentar terminar antes de llegar; llegar y terminar','Botón bloqueado hasta llegar; viaje pasa a Finalizado e historial','Extensión R1.1']];
+
+function guide(){return heading('Guía de exposición y trazabilidad','Release 1.1 · Sprint 1 + Sprint 2 + perfiles y mapa','Fuente principal: IS2.pdf. Referencia visual: informe anterior.')+`<div class="guide">
+<section class="card"><h2>1. Alcance analizado</h2><p>IS2.pdf, pp. 7–8, 27–34 y 47–55: MVP de acceso, búsqueda, publicación, chat, reputación, historial y ahorro. Las doce historias listadas abajo, más tres extensiones (perfiles por rol, mapa interactivo y terminar viaje).</p><p>No se implementan edición de perfil, filtros avanzados, recomendaciones, edición o cancelación de rutas, notificaciones, validación administrativa de identidad, CO₂ ni historial detallado. "Cambiar perfil" existe solo para alternar entre pasajero y conductor en la exposición.</p><p>OTP pertenece al registro US02 según p. 33. El chat exige participación en viaje activo o en curso (p. 50).</p></section>
+<section class="card"><h2>2. Historias y pantallas mínimas</h2><p><strong>Sprint 1:</strong> US01, US05, US09, US13, US17, US21.<br><strong>Sprint 2:</strong> US02, US06, US10, US14, US18, US22.<br><strong>Extensión R1.1:</strong> EXT-1 perfiles, EXT-2 mapa, EXT-3 terminar viaje.</p><p><strong>Pasajero:</strong> buscar viajes, detalle con mapa, reservar asiento, Mis viajes, seguir viaje en vivo, chat, historial, ahorro, perfil.<br><strong>Conductor:</strong> panel con rutas activas, publicar ruta con mapa, gestionar viaje (iniciar · simular/GPS · terminar), chat, historial, ganancias, perfil.</p></section>
+<section class="card"><h2>3. Mapa de navegación</h2><p>Login ↔ Registro (elige rol) → OTP → Login<br><strong>Pasajero:</strong> Buscar → Detalle → Reservar → Seguir mi viaje → (Finalizado) → Calificar<br><strong>Conductor:</strong> Panel → Publicar ruta → Panel → Gestionar viaje → Iniciar → Llegar → Terminar viaje → Historial / Ganancias<br>Navegación → Conversaciones → Chat · Perfil · Historial</p></section>
+<section class="card"><h2>4. Datos mock coherentes</h2><p>Pasajeros: Gabriel y Lucía Paredes. Conductores: Andrea Salazar, Diego Ríos y Valeria Torres. Todos ficticios, contraseña RutaFlex1!. Cinco viajes activos con coordenadas reales aproximadas de Lima, tres históricos, una conversación precargada. Gabriel participa en t1 (conductora Andrea).</p><p>Históricos: taxi 24 / compartido 8; taxi 22 / compartido 7; taxi 20 / compartido 6. Ahorro inicial: S/ 45.00. Al terminar un viaje se calcula una tarifa de taxi estimada por distancia (mock). Los datos se guardan en el navegador; la sesión es por pestaña, así que puedes tener al pasajero y al conductor abiertos a la vez.</p></section>
+<section class="card"><h2>5. Componentes y diseño</h2><p>Navbar por rol, encabezados con HU, cards de viaje, campos con error, botones, avatar, perfil con insignia de rol, reputación, burbujas, modal de estrellas, estados vacíos, alertas y mapa interactivo.</p><p>Mapa: Leaflet + teselas de OpenStreetMap/CARTO; la ruta por calles se pide a OSRM y, si no responde, se dibuja una línea por las paradas. Requiere internet; sin conexión se muestra un aviso y el resto del prototipo funciona.</p></section>
+<section class="card"><h2>6. POR DEFINIR y límites</h2><p>Lista completa de dominios institucionales; política de contraseña; longitud, vigencia y reintentos OTP; límite máximo de asientos; política de calificaciones repetidas; método productivo de tarifa taxi; pagos y comisiones del conductor; radio de llegada productivo (demo: 150 m con GPS).</p><p>El recorrido se simula; el modo GPS usa la ubicación del navegador y solo se comparte entre pestañas del mismo navegador. No hay backend ni seguimiento real entre dispositivos.</p></section>
+<section class="card"><h2>7. Matriz final de trazabilidad</h2><div class="tablewrap"><table><thead><tr><th>HU</th><th>Pantalla</th><th>Interacción</th><th>Criterio demostrado</th><th>Fuente</th></tr></thead><tbody>${matrix.map(r=>`<tr><td><strong>${r[0]}</strong><br>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')}</tbody></table></div></section>
+<section class="card"><h2>8. Recorrido recomendado de exposición</h2><p>1. Login incorrecto y luego <strong>Pasajero (Gabriel)</strong>.<br>2. Buscar Universidad de Lima y Cusco; abrir un viaje y ver la ruta en el mapa; reservar asiento.<br>3. Mis viajes → t1 → "Esperando a que Andrea inicie el viaje".<br>4. En otra pestaña: <strong>Conductor (Andrea)</strong> → Panel → t1 → Iniciar viaje → Simular recorrido.<br>5. Volver a la pestaña de Gabriel: el auto avanza en vivo.<br>6. Mostrar que "Terminar viaje" está bloqueado hasta llegar; al llegar, terminar viaje.<br>7. Gabriel ve "Viaje terminado" y califica a Andrea; revisar Ahorro (pasajero) y Ganancias (conductor).<br>8. Chat, reputación, publicar ruta con mapa y registro con elección de rol.</p></section></div>`}
+render();
+</script></body></html>
