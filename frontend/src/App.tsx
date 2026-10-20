@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ComponentType } from 'react'
 import { AppCtx } from './context'
+import type { AppContextValue, Modal, ViewKey } from './context'
 import { useDb, user, trip, passengers } from './store/db'
 import { useCloudStatus } from './store/cloud'
+import type { CloudStatus } from './store/cloud'
 import { firstName } from './lib/utils'
 import { RoleBadge } from './components/ui'
 import DemoLab from './components/DemoLab'
@@ -13,49 +16,50 @@ import TripView from './views/TripView'
 import { Chats, Chat } from './views/Chat'
 import { History, Savings, Earnings, ProfileView } from './views/Account'
 import Guide from './views/Guide'
+import type { PendingUser } from './types'
 
-const VIEWS = {
+const VIEWS: Record<ViewKey, ComponentType> = {
   login: Login, register: Register, otp: Otp, guide: Guide,
   home: Home, mytrips: MyTrips, detail: Detail,
   dhome: DriverHome, publish: Publish, trip: TripView,
   chats: Chats, chat: Chat, history: History, savings: Savings, earnings: Earnings, profile: ProfileView,
 }
-const NAV_P = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
-const NAV_C = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
-const DRIVER_ONLY = ['dhome', 'publish', 'earnings']
-const PASSENGER_ONLY = ['home', 'mytrips', 'savings', 'detail']
-const PUBLIC = ['login', 'register', 'otp', 'guide']
-const STATUS_TEXT = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Supabase en línea', error: '⚠️ Sin Supabase · modo local' }
+const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
+const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
+const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings']
+const PASSENGER_ONLY: ViewKey[] = ['home', 'mytrips', 'savings', 'detail']
+const PUBLIC: ViewKey[] = ['login', 'register', 'otp', 'guide']
+const STATUS_TEXT: Record<CloudStatus, string> = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Supabase en línea', error: '⚠️ Sin Supabase · modo local' }
 
-const homeFor = id => user(id)?.role === 'conductor' ? 'dhome' : 'home'
+const homeFor = (id: string): ViewKey => user(id)?.role === 'conductor' ? 'dhome' : 'home'
 
 export default function App() {
   const db = useDb()
   const cloud = useCloudStatus()
-  const [current, setCurrentState] = useState(() => { try { return sessionStorage.getItem('rf-user') } catch { return null } })
-  const [view, setView] = useState(() => (current && user(current) ? homeFor(current) : 'login'))
+  const [current, setCurrentState] = useState<string | null>(() => { try { return sessionStorage.getItem('rf-user') } catch { return null } })
+  const [view, setView] = useState<ViewKey>(() => (current && user(current) ? homeFor(current) : 'login'))
   const [selected, setSelected] = useState('t1')
   const [query, setQuery] = useState('')
   const [searched, setSearched] = useState(false)
-  const [pending, setPending] = useState(null)
+  const [pending, setPending] = useState<PendingUser | null>(null)
   const [otpExpired, setOtpExpired] = useState(false)
-  const [modal, setModal] = useState(null)
+  const [modal, setModal] = useState<Modal | null>(null)
   const [toastText, setToastText] = useState('')
-  const toastTimer = useRef(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  const me = current ? user(current) : null
+  const me = current ? user(current) ?? null : null
   const isDriver = me?.role === 'conductor'
 
-  const setCurrent = useCallback(id => {
+  const setCurrent = useCallback((id: string | null) => {
     setCurrentState(id)
     try { id ? sessionStorage.setItem('rf-user', id) : sessionStorage.removeItem('rf-user') } catch {}
   }, [])
-  const toast = useCallback(text => {
+  const toast = useCallback((text: string) => {
     setToastText(text)
     clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToastText(''), 3500)
   }, [])
-  const go = useCallback((v, id) => {
+  const go = useCallback((v: ViewKey, id?: string) => {
     if (id) setSelected(id)
     setView(v)
     window.scrollTo(0, 0)
@@ -68,36 +72,36 @@ export default function App() {
   }, [db, current, cloud, setCurrent])
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') closeModal() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [closeModal])
 
-  function rate(id) {
+  function rate(id: string) {
     const t = trip(id)
     if (!t || t.status !== 'Finalizado') return toast('Calificación rechazada: el viaje todavía no ha finalizado.')
-    if (!t.members.includes(current)) return toast('Solo puedes calificar viajes en los que participaste.')
+    if (!current || !t.members.includes(current)) return toast('Solo puedes calificar viajes en los que participaste.')
     const target = t.driver === current ? passengers(t)[0] : t.driver
     if (!target) return toast('Este viaje no tuvo pasajeros.')
     setSelected(id)
     setModal({ type: 'rating', tripId: id, target })
   }
 
-  function login(id) { setCurrent(id); go(homeFor(id)) }
+  function login(id: string) { setCurrent(id); go(homeFor(id)) }
   function logout() { setCurrent(null); go('login'); toast('Sesión cerrada. Elige otro perfil.') }
   function resetSession() { setPending(null); setQuery(''); setSearched(false); setModal(null) }
 
   // Reglas de acceso por rol.
-  let v = VIEWS[view] ? view : 'login'
+  let v: ViewKey = VIEWS[view] ? view : 'login'
   if (me && isDriver && PASSENGER_ONLY.includes(v)) v = 'dhome'
   if (me && !isDriver && DRIVER_ONLY.includes(v)) v = 'home'
   if (!me && !PUBLIC.includes(v)) v = 'login'
   const View = VIEWS[v]
 
-  const ctx = {
+  const ctx: AppContextValue = {
     db, current, me, isDriver, view: v, selected, go, toast, rate, login, logout, setCurrent, resetSession,
     query, setQuery, searched, setSearched, pending, setPending, otpExpired, setOtpExpired,
-    setModal, closeModal, homeView: me ? homeFor(current) : 'login',
+    setModal, closeModal, homeView: me && current ? homeFor(current) : 'login',
   }
 
   return (

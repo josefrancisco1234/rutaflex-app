@@ -1,14 +1,15 @@
-import { useApp } from '../context'
+import { useSession } from '../context'
 import { user, passengers } from '../store/db'
 import { money } from '../lib/utils'
 import { Empty, Heading } from '../components/ui'
 import Profile from '../components/Profile'
+import type { Db, Trip } from '../types'
 
-const historyTrips = (db, current) => db.trips.filter(t => t.status === 'Finalizado' && t.members.includes(current))
+const historyTrips = (db: Db, current: string) => db.trips.filter(t => t.status === 'Finalizado' && t.members.includes(current))
 
 // US21 · US18 · Historial
 export function History() {
-  const { db, current, rate } = useApp()
+  const { db, current, rate } = useSession()
   const ts = historyTrips(db, current)
   return (
     <>
@@ -34,9 +35,10 @@ export function History() {
 
 // US22 · Ahorro del pasajero
 export function Savings() {
-  const { db, current } = useApp()
+  const { db, current } = useSession()
   const ts = historyTrips(db, current).filter(t => t.driver !== current)
-  const total = ts.reduce((a, t) => a + (t.taxi - t.price), 0)
+  const saving = (t: Trip) => (t.taxi || 0) - (t.price || 0)
+  const total = ts.reduce((a, t) => a + saving(t), 0)
   return (
     <>
       <Heading title="Cada viaje cuenta" hu="US22" sub="Ahorro económico estimado con datos ficticios." />
@@ -53,8 +55,8 @@ export function Savings() {
             <h3>Cálculo básico por viaje</h3>
             {ts.map(t => (
               <div key={t.id} className="row between" style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
-                <div><strong>{t.origin}</strong><br /><small>{money(t.taxi)} − {money(t.price)}</small></div>
-                <strong>{money(t.taxi - t.price)}</strong>
+                <div><strong>{t.origin}</strong><br /><small>{money(t.taxi || 0)} − {money(t.price || 0)}</small></div>
+                <strong>{money(saving(t))}</strong>
               </div>
             ))}
           </div>
@@ -66,9 +68,9 @@ export function Savings() {
 
 // US22 · Ganancias del conductor
 export function Earnings() {
-  const { db, current } = useApp()
+  const { db, current } = useSession()
   const ts = historyTrips(db, current).filter(t => t.driver === current)
-  const income = t => (t.price || 0) * passengers(t).length
+  const income = (t: Trip) => (t.price || 0) * passengers(t).length
   const total = ts.reduce((a, t) => a + income(t), 0)
   return (
     <>
@@ -99,7 +101,7 @@ export function Earnings() {
 
 // US17 · Perfil
 export function ProfileView() {
-  const { me } = useApp()
+  const { me } = useSession()
   return (
     <>
       <Heading title="Mi perfil" hu="US17" sub="Información de consulta. Sin edición de perfil." />

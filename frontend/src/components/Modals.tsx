@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../context'
+import type { EndSummary } from '../context'
 import { getDb, trip, user, save } from '../store/db'
 import { money } from '../lib/utils'
 
 // US18 · Modal de calificación (1 a 5 estrellas).
-export function RatingModal({ tripId, target }) {
+export function RatingModal({ tripId, target }: { tripId: string, target: string }) {
   const { current, closeModal, toast } = useApp()
   const [score, setScore] = useState(0)
   const [err, setErr] = useState('')
-  const first = useRef(null)
+  const first = useRef<HTMLButtonElement>(null)
   const t = trip(tripId)
   useEffect(() => { first.current?.focus() }, [])
 
   function submit() {
-    const t = trip(tripId)
-    if (t?.status !== 'Finalizado' || !t.members.includes(current)) { closeModal(); return toast('Calificación no permitida.') }
+    const t = trip(tripId), to = user(target)
+    if (t?.status !== 'Finalizado' || !current || !to || !t.members.includes(current)) { closeModal(); return toast('Calificación no permitida.') }
     if (!Number.isInteger(score) || score < 1 || score > 5) return setErr('Selecciona una puntuación válida entre 1 y 5.')
-    user(target).scores.push(score)
+    to.scores.push(score)
     getDb().ratings.push({ trip: t.id, from: current, to: target, score })
     save()
     closeModal()
@@ -47,7 +48,7 @@ export function RatingModal({ tripId, target }) {
 }
 
 // EXT-3 · Resumen al terminar el viaje.
-export function EndTripModal({ dest, dist, mins, ps, income }) {
+export function EndTripModal({ dest, dist, mins, ps, income }: EndSummary) {
   const { closeModal, go } = useApp()
   return (
     <div className="overlay">

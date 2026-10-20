@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { useApp } from '../context'
 import { getDb, save } from '../store/db'
 import { cloudReady, cloudLogin } from '../store/cloud'
 import { institutional, showErrors } from '../lib/utils'
+import type { FormErrors } from '../lib/utils'
 import { Field } from '../components/ui'
+import type { Role } from '../types'
 
-function AuthLayout({ children }) {
+function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
       <div className="authaside">
@@ -26,24 +29,24 @@ function AuthLayout({ children }) {
 // US01 · Iniciar sesión
 export function Login() {
   const { go, login, toast } = useApp()
-  const [err, setErr] = useState({})
+  const [err, setErr] = useState<FormErrors>({})
   const [busy, setBusy] = useState(false)
 
-  async function submit(e) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const f = new FormData(e.target)
+    const f = new FormData(e.currentTarget)
     const email = String(f.get('email')).trim().toLowerCase(), pass = String(f.get('password'))
-    const er = {}
+    const er: FormErrors = {}
     if (!institutional(email)) er.email = 'Solo se admite el dominio institucional de demostración aloe.ulima.edu.pe.'
     if (!pass) er.password = 'Ingresa tu contraseña.'
     if (showErrors(er, setErr)) return
-    let id = null
+    let id: string | null = null
     if (cloudReady()) {
       setBusy(true)
       try { id = await cloudLogin(email, pass) } catch { toast('No se pudo conectar con Supabase.') }
       setBusy(false)
     } else {
-      id = getDb().users.find(u => u.email === email && u.pass === pass)?.id
+      id = getDb().users.find(u => u.email === email && u.pass === pass)?.id ?? null
     }
     if (!id) return showErrors({ password: 'Correo o contraseña incorrectos.' }, setErr)
     login(id)
@@ -74,15 +77,15 @@ export function Login() {
 // US02 · Registro (paso 1)
 export function Register() {
   const { go, setPending, setOtpExpired } = useApp()
-  const [err, setErr] = useState({})
-  const [role, setRole] = useState('pasajero')
+  const [err, setErr] = useState<FormErrors>({})
+  const [role, setRole] = useState<Role>('pasajero')
 
-  function submit(e) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const f = new FormData(e.target)
+    const f = new FormData(e.currentTarget)
     const name = String(f.get('name')).trim(), email = String(f.get('email')).trim().toLowerCase()
     const pass = String(f.get('password')), car = String(f.get('car') || '').trim()
-    const er = {}
+    const er: FormErrors = {}
     if (!name) er.name = 'Completa tu nombre.'
     if (!institutional(email)) er.email = 'Utiliza un correo institucional del dominio de demostración.'
     else if (getDb().users.some(u => u.email === email)) er.email = 'Este correo ya está registrado.'
@@ -104,7 +107,7 @@ export function Register() {
         <Field id="password" label="Contraseña *" type="password" error={err.password} />
         <div className="field">
           <label htmlFor="role">Tipo de perfil *</label>
-          <select id="role" value={role} onChange={e => setRole(e.target.value)}>
+          <select id="role" value={role} onChange={e => setRole(e.target.value as Role)}>
             <option value="pasajero">🎒 Pasajero — busco viajes</option>
             <option value="conductor">🚗 Conductor — ofrezco viajes</option>
           </select>
@@ -121,13 +124,13 @@ export function Register() {
 // US02 · Verificación OTP (paso 2)
 export function Otp() {
   const { go, toast, pending, setPending, otpExpired, setOtpExpired } = useApp()
-  const [err, setErr] = useState({})
+  const [err, setErr] = useState<FormErrors>({})
 
-  function submit(e) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!pending) return go('register')
     if (otpExpired) return showErrors({ code: 'El código está vencido. Solicita un nuevo código simulado.' }, setErr)
-    if (String(new FormData(e.target).get('code')).trim() !== '123456') return showErrors({ code: 'Código inválido.' }, setErr)
+    if (String(new FormData(e.currentTarget).get('code')).trim() !== '123456') return showErrors({ code: 'Código inválido.' }, setErr)
     getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0 })
     save()
     setPending(null)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useApp } from '../context'
+import { useSession } from '../context'
 import { getDb, trip, user, save, passengers, active } from '../store/db'
 import { getPath, pathLen, pointAt, hav, km, liveNumbers } from '../lib/geo'
 import { money, firstName } from '../lib/utils'
@@ -10,11 +10,11 @@ import { TripMap } from '../components/maps'
 
 // EXT-2 · EXT-3 · Seguir / gestionar el viaje en vivo
 export default function TripView() {
-  const { current, me, selected, go, toast, rate, setModal, homeView } = useApp()
+  const { current, me, selected, go, toast, rate, setModal, homeView } = useSession()
   const t = trip(selected)
   const [sim, setSim] = useState(false)
   const [gps, setGps] = useState(false)
-  const watch = useRef(null)
+  const watch = useRef<number | null>(null)
 
   function stopGps() {
     if (watch.current !== null) { navigator.geolocation.clearWatch(watch.current); watch.current = null }
@@ -27,8 +27,8 @@ export default function TripView() {
     if (!sim) return
     const iv = setInterval(() => {
       const t = trip(selected)
-      if (!t || t.status !== 'En curso') return setSim(false)
-      const p = getPath(t)
+      const p = t && getPath(t)
+      if (!t || t.status !== 'En curso' || !p) return setSim(false)
       t.progress = Math.min(1, (t.progress || 0) + 0.008)
       t.pos = pointAt(p, t.progress)
       t.arrived = t.progress >= 1
@@ -38,7 +38,8 @@ export default function TripView() {
     return () => clearInterval(iv)
   }, [sim, selected, toast])
 
-  if (!t) return <><Back go={go} to={homeView} /><Empty title="Viaje no encontrado" text="El viaje no existe." /></>
+  const u = t && user(t.driver)
+  if (!t || !u) return <><Back go={go} to={homeView} /><Empty title="Viaje no encontrado" text="El viaje no existe." /></>
   const drv = t.driver === current, member = t.members.includes(current)
   if (!drv && !member) {
     return <>
@@ -48,11 +49,12 @@ export default function TripView() {
     </>
   }
 
-  const u = user(t.driver), ps = passengers(t), n = liveNumbers(t)
+  const ps = passengers(t), n = liveNumbers(t)
   const canChat = active(t) && member
 
   function startTrip() {
-    if (t.driver !== current || t.status !== 'Activo') return
+    const t = trip(selected)
+    if (!t || t.driver !== current || t.status !== 'Activo') return
     if (getDb().trips.some(x => x.driver === current && x.status === 'En curso')) return toast('Ya tienes otro viaje en curso. Termínalo primero.')
     const p = getPath(t)
     Object.assign(t, { status: 'En curso', started: Date.now(), progress: 0, gps: false, arrived: false, pos: p ? p[0] : null })
@@ -63,8 +65,9 @@ export default function TripView() {
   function toggleSim() {
     if (sim) return setSim(false)
     stopGps()
-    if (t.status !== 'En curso') return
-    if (t.progress >= 1) { t.arrived = true; return save() }
+    const t = trip(selected)
+    if (!t || t.status !== 'En curso') return
+    if ((t.progress || 0) >= 1) { t.arrived = true; return save() }
     t.gps = false
     setSim(true)
   }
@@ -86,7 +89,8 @@ export default function TripView() {
   }
 
   function endTrip() {
-    if (t.driver !== current || t.status !== 'En curso') return
+    const t = trip(selected)
+    if (!t || t.driver !== current || t.status !== 'En curso') return
     if (!t.arrived) return toast('Aún no llegas al destino.')
     setSim(false)
     stopGps()
@@ -128,7 +132,7 @@ export default function TripView() {
         <h2>Rumbo a {t.dest}</h2>
         <p className="muted">Avanza hasta el destino. Para la exposición usa la simulación; en el celular puedes usar el GPS real.</p>
         <div className="btnrow">
-          <button className="secondary" onClick={toggleSim}>{sim ? '⏸ Pausar simulación' : t.progress > 0 ? '▶ Continuar simulación' : '▶ Simular recorrido'}</button>
+          <button className="secondary" onClick={toggleSim}>{sim ? '⏸ Pausar simulación' : (t.progress || 0) > 0 ? '▶ Continuar simulación' : '▶ Simular recorrido'}</button>
           <button className="secondary" onClick={toggleGps}>{gps ? '📡 Detener GPS' : '📡 Usar mi GPS real'}</button>
         </div>
         {passengerList}

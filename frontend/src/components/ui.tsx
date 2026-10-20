@@ -1,6 +1,9 @@
+import type { InputHTMLAttributes } from 'react'
 import { money } from '../lib/utils'
+import type { AppContextValue, ViewKey } from '../context'
+import type { Role, Trip, User } from '../types'
 
-export function Empty({ title, text }) {
+export function Empty({ title, text }: { title: string, text: string }) {
   return (
     <div className="card empty">
       <div className="symbol">◇</div>
@@ -10,7 +13,7 @@ export function Empty({ title, text }) {
   )
 }
 
-export function Heading({ title, hu, sub = '' }) {
+export function Heading({ title, hu, sub = '' }: { title: string, hu: string, sub?: string }) {
   return (
     <div className="top">
       <div>
@@ -22,7 +25,9 @@ export function Heading({ title, hu, sub = '' }) {
   )
 }
 
-export function Field({ id, label, type = 'text', defaultValue = '', error, ...rest }) {
+type FieldProps = InputHTMLAttributes<HTMLInputElement> & { id: string, label: string, error?: string }
+
+export function Field({ id, label, type = 'text', defaultValue = '', error, ...rest }: FieldProps) {
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
@@ -32,28 +37,28 @@ export function Field({ id, label, type = 'text', defaultValue = '', error, ...r
   )
 }
 
-export function Reputation({ u }) {
+export function Reputation({ u }: { u: User }) {
   if (!u.scores.length) return <span className="muted">Sin calificaciones registradas</span>
   const avg = (u.scores.reduce((a, b) => a + b, 0) / u.scores.length).toFixed(1)
   return <><span className="stars">★</span> {avg} <small>({u.scores.length} calificaciones)</small></>
 }
 
-export function RoleBadge({ role }) {
+export function RoleBadge({ role }: { role: Role }) {
   return role === 'conductor'
     ? <span className="rolebadge conductor">🚗 Conductor</span>
     : <span className="rolebadge pasajero">🎒 Pasajero</span>
 }
 
-export function StatusPill({ t }) {
+export function StatusPill({ t }: { t: Trip }) {
   const style = t.status === 'En curso' ? { background: '#fff3dc', color: '#8a5a00' }
     : t.status === 'Finalizado' ? { background: '#eef1f3', color: '#607783' } : undefined
   return <span className="pill" style={style}>{t.status} · {t.time}</span>
 }
 
-export function Price({ t, suffix = '', empty = 'POR DEFINIR' }) {
+export function Price({ t, suffix = '', empty = 'POR DEFINIR' }: { t: Trip, suffix?: string, empty?: string }) {
   return <span className="price">{t.price == null ? empty : money(t.price) + suffix}</span>
 }
 
-export function Back({ to, id, label = '← Volver', go }) {
+export function Back({ to, id, label = '← Volver', go }: { to: ViewKey, id?: string, label?: string, go: AppContextValue['go'] }) {
   return <button className="secondary back" onClick={() => go(to, id)}>{label}</button>
 }

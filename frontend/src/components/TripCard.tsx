@@ -1,9 +1,10 @@
-import { useApp } from '../context'
+import { useSession } from '../context'
 import { user, passengers } from '../store/db'
 import { StatusPill, Price, Reputation } from './ui'
+import type { Trip } from '../types'
 
-export default function TripCard({ t }) {
-  const { current, go } = useApp()
+export default function TripCard({ t }: { t: Trip }) {
+  const { current, go } = useSession()
   const u = user(t.driver)
   const mine = t.driver === current
   const member = t.members.includes(current) && !mine

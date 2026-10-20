@@ -46,7 +46,7 @@ export default function Guide() {
         </section>
         <section className="card">
           <h2>5. Arquitectura</h2>
-          <p><strong>Frontend:</strong> React 18 + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> Supabase (PostgreSQL). Tablas usuarios, credenciales, viajes, mensajes y calificaciones; contraseñas cifradas con bcrypt; RLS de solo lectura; escrituras mediante funciones (rf_sync, rf_login, rf_reset) y Realtime para el seguimiento en vivo.</p>
+          <p><strong>Frontend:</strong> React 18 + TypeScript + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> Supabase (PostgreSQL). Tablas usuarios, credenciales, viajes, mensajes y calificaciones; contraseñas cifradas con bcrypt; RLS de solo lectura; escrituras mediante funciones (rf_sync, rf_login, rf_reset) y Realtime para el seguimiento en vivo.</p>
           <p>Mapa: Leaflet + teselas de OpenStreetMap/CARTO; la ruta por calles se pide a OSRM y, si no responde, se dibuja una línea por las paradas. Sin Supabase la app funciona en modo local (localStorage).</p>
         </section>
         <section className="card">

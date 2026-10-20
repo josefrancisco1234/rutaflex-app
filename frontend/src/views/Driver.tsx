@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { useApp } from '../context'
+import type { FormEvent } from 'react'
+import { useSession } from '../context'
 import { getDb, save, active } from '../store/db'
 import { firstName, showErrors } from '../lib/utils'
+import type { FormErrors } from '../lib/utils'
 import { ULIMA } from '../data/seed'
 import { Empty, Heading, Field, Reputation } from '../components/ui'
 import TripCard from '../components/TripCard'
 import { PickMap } from '../components/maps'
+import type { PickMode } from '../components/maps'
+import type { LatLng } from '../types'
 
 // US10 · Panel del conductor
 export function DriverHome() {
-  const { db, me, current, go } = useApp()
+  const { db, me, current, go } = useSession()
   const ts = db.trips.filter(t => t.driver === current && active(t))
   const run = ts.find(t => t.status === 'En curso')
   return (
@@ -39,29 +43,29 @@ export function DriverHome() {
 
 // US09 · Publicar ruta
 export function Publish() {
-  const { current, go, toast } = useApp()
-  const [err, setErr] = useState({})
-  const [mode, setMode] = useState('origin')
-  const [origin, setOrigin] = useState(null)
-  const [dest, setDest] = useState(ULIMA)
+  const { current, go, toast } = useSession()
+  const [err, setErr] = useState<FormErrors>({})
+  const [mode, setMode] = useState<PickMode>('origin')
+  const [origin, setOrigin] = useState<LatLng | null>(null)
+  const [dest, setDest] = useState<LatLng>(ULIMA)
 
-  function onPick(kind, p) {
+  function onPick(kind: 'o' | 'd', p: LatLng) {
     if (kind === 'o') { setOrigin(p); setErr(e => ({ ...e, map: '' })) } else setDest(p)
   }
 
-  function submit(e) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const f = new FormData(e.target)
+    const f = new FormData(e.currentTarget)
     const o = String(f.get('origin')).trim(), d = String(f.get('dest')).trim(), time = String(f.get('time'))
     const seats = Number(f.get('seats')), p = String(f.get('price'))
-    const er = {}
+    const er: FormErrors = {}
     if (!o) er.origin = 'Completa el punto de partida.'
     if (!d) er.dest = 'Completa el destino.'
     if (!time) er.time = 'Selecciona una hora.'
     if (!Number.isInteger(seats) || seats < 1) er.seats = 'Ingresa un número entero positivo de asientos.'
     if (p !== '' && Number(p) < 0) er.price = 'El precio no puede ser negativo.'
     if (!origin) er.map = 'Haz clic en el mapa para marcar el punto de partida.'
-    if (showErrors(er, setErr)) return
+    if (showErrors(er, setErr) || !origin) return
     getDb().trips.push({ id: 'r' + Date.now(), driver: current, origin: o, dest: d, time, seats, price: p === '' ? null : Number(p), status: 'Activo', members: [current], stops: [], o: origin, d: dest || ULIMA, w: [] })
     save()
     go('dhome')

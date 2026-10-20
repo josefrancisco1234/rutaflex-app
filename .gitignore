@@ -10,6 +10,9 @@ dist/
 # El ZIP de entrega incluye .env, se comparte aparte
 entrega/
 
+# Documentación local (no se sube)
+*.md
+
 # Archivos temporales de Office y del sistema
 ~$*
 *.tmp

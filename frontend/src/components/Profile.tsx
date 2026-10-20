@@ -1,6 +1,7 @@
 import { RoleBadge, Reputation } from './ui'
+import type { User } from '../types'
 
-export default function Profile({ u }) {
+export default function Profile({ u }: { u: User }) {
   return (
     <div className="card">
       <div className="row">

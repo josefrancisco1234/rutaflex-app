@@ -29,6 +29,7 @@ export default function DemoLab() {
   }
 
   function simulateCompleted() {
+    if (!current || !me) return
     const db = getDb()
     if (db.trips.some(t => t.id === 'h-demo-' + current)) return toast('El viaje de prueba ya está cargado')
     db.trips.push({ id: 'h-demo-' + current, driver: 'v', origin: 'La Molina', dest: 'Universidad de Lima', time: '09:30', seats: 0, price: 5, taxi: 15, status: 'Finalizado', members: [current, 'v'], date: '2026-10-15' })
@@ -40,8 +41,8 @@ export default function DemoLab() {
 
   function jumpToEnd() {
     const t = getDb().trips.find(x => x.driver === current && x.status === 'En curso')
-    if (!t) return toast('No tienes un viaje en curso. Inicia uno primero.')
-    const p = getPath(t)
+    const p = t && getPath(t)
+    if (!t || !p) return toast('No tienes un viaje en curso. Inicia uno primero.')
     t.progress = 1; t.gps = false; t.pos = p[p.length - 1]; t.arrived = true
     save()
     go('trip', t.id)

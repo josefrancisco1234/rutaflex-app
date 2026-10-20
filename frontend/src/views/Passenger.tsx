@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useApp } from '../context'
+import type { FormEvent } from 'react'
+import { useSession } from '../context'
 import { getDb, trip, user, save, active } from '../store/db'
 import { norm, firstName } from '../lib/utils'
 import { Empty, Heading, StatusPill, Price, Back } from '../components/ui'
@@ -9,12 +10,12 @@ import { TripMap } from '../components/maps'
 
 // US05 · US17 · Buscar viajes
 export function Home() {
-  const { db, me, current, query, setQuery, searched, setSearched } = useApp()
+  const { db, me, current, query, setQuery, searched, setSearched } = useSession()
   const [qErr, setQErr] = useState('')
 
-  function submit(e) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const q = String(new FormData(e.target).get('destination')).trim()
+    const q = String(new FormData(e.currentTarget).get('destination')).trim()
     if (!q) return setQErr('Ingresa un destino.')
     setQErr('')
     setQuery(q)
@@ -49,7 +50,7 @@ export function Home() {
 }
 
 export function MyTrips() {
-  const { db, current } = useApp()
+  const { db, current } = useSession()
   const ts = db.trips.filter(t => active(t) && t.members.includes(current) && t.driver !== current)
   return (
     <>
@@ -63,16 +64,17 @@ export function MyTrips() {
 
 // US06 · Detalle del viaje + reserva
 export function Detail() {
-  const { current, selected, go, toast } = useApp()
+  const { current, selected, go, toast } = useSession()
   const t = trip(selected)
-  if (!t || t.status !== 'Activo' || (t.seats < 1 && !t.members.includes(current))) {
+  const u = t && user(t.driver)
+  if (!t || !u || t.status !== 'Activo' || (t.seats < 1 && !t.members.includes(current))) {
     return <>
       <Back go={go} to="home" label="← Volver a búsqueda" />
       <Heading title="Viaje no disponible" hu="US06" />
       <Empty title="Este viaje no puede consultarse" text="La ruta no está disponible o no tiene asientos." />
     </>
   }
-  const u = user(t.driver), member = t.members.includes(current)
+  const member = t.members.includes(current)
   const canChat = active(t) && member
 
   function reserve() {

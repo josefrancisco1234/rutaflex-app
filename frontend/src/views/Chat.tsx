@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { useApp } from '../context'
+import type { FormEvent } from 'react'
+import { useSession } from '../context'
 import { getDb, trip, user, save, passengers, active } from '../store/db'
 import { nowTime } from '../lib/utils'
 import { Empty, Heading, Back } from '../components/ui'
+import type { Message, Trip } from '../types'
 
-const canChat = (t, current) => active(t) && t.members.includes(current)
+const canChat = (t: Trip | undefined, current: string): t is Trip => active(t) && t.members.includes(current)
 
 // US13 · Conversaciones
 export function Chats() {
-  const { db, current, go } = useApp()
+  const { db, current, go } = useSession()
   const ts = db.trips.filter(t => canChat(t, current))
   return (
     <>
@@ -28,13 +30,13 @@ export function Chats() {
 
 // US14 · Chat del viaje
 export function Chat() {
-  const { db, current, selected, go, toast } = useApp()
+  const { db, current, selected, go, toast } = useSession()
   const t = trip(selected)
   const msgs = (t && db.messages[t.id]) || []
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
-  const box = useRef(null)
-  const input = useRef(null)
+  const box = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight }, [msgs.length])
 
   if (!canChat(t, current)) {
@@ -46,9 +48,9 @@ export function Chat() {
   }
 
   const other = t.driver === current ? (passengers(t)[0] ? user(passengers(t)[0]) : null) : user(t.driver)
-  const push = m => { (getDb().messages[t.id] ??= []).push(m); save() }
+  const push = (m: Message) => { (getDb().messages[t.id] ??= []).push(m); save() }
 
-  function send(e) {
+  function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canChat(trip(selected), current)) return toast('Envío restringido: chat no habilitado.')
     const value = text.trim()
@@ -60,7 +62,7 @@ export function Chat() {
   }
 
   function reply() {
-    const o = t.members.find(id => id !== current)
+    const o = trip(selected)?.members.find(id => id !== current)
     if (!o) return toast('No hay otro participante en esta ruta.')
     push({ sender: o, text: '¡Perfecto! Coordinamos en el punto de partida.', time: nowTime() })
   }

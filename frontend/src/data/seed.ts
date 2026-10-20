@@ -1,7 +1,9 @@
-// Datos mock iniciales (ficticios). También se usan para cargar Supabase al reiniciar la demo.
-export const ULIMA = [-12.0848, -76.9712]
+import type { Db, LatLng } from '../types'
 
-export const seed = () => ({
+// Datos mock iniciales (ficticios). También se usan para cargar Supabase al reiniciar la demo.
+export const ULIMA: LatLng = [-12.0848, -76.9712]
+
+export const seed = (): Db => ({
   users: [
     { id: 'g', role: 'pasajero', name: 'Gabriel', email: 'gabriel@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5, 4], completed: 3 },
     { id: 'l', role: 'pasajero', name: 'Lucía Paredes', email: 'lucia@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5], completed: 2 },
