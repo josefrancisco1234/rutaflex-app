@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { supabase, cloudConfigured } from '../lib/supabase'
+import { supabase, supabaseUrl, supabaseKey, cloudConfigured } from '../lib/supabase'
 import { getDb, replaceDb, onSave, setTabSync } from './db'
 import { seed } from '../data/seed'
 import type { Db, Message, Rating, Role, Trip, TripStatus, User } from '../types'
@@ -19,6 +19,24 @@ export function useCloudStatus() {
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado')
   return supabase
+}
+
+// POST a una función del backend: https://<proyecto>.supabase.co/rest/v1/rpc/<fn> (definidas en schema.sql).
+// La key sb_publishable_ va solo en el header apikey, nunca como Bearer.
+async function post<T = null>(fn: string, body: object): Promise<{ data: T | null, error: unknown }> {
+  try {
+    if (!supabaseUrl || !supabaseKey) throw new Error('Supabase no está configurado')
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: supabaseKey },
+      body: JSON.stringify(body),
+    })
+    const text = await res.text()
+    const data = text ? JSON.parse(text) : null
+    return res.ok ? { data, error: null } : { data: null, error: data ?? res.statusText }
+  } catch (error) {
+    return { data: null, error }
+  }
 }
 
 // ---------- filas de la base de datos (columnas de schema.sql) ----------
@@ -121,7 +139,7 @@ async function flush() {
   if (!changed.length) return
   busy = true
   changed.forEach(e => remember(e.key, e.json))
-  const { error } = await client().rpc('rf_sync', { p: group(changed) })
+  const { error } = await post('rf_sync', { p: group(changed) })
   if (error) { console.error('[supabase] rf_sync', error); changed.forEach(e => last.delete(e.key)); setStatus('error') }
   else if (status !== 'online') setStatus('online')
   busy = false
@@ -199,14 +217,14 @@ export async function initCloud() {
 
 export async function resetCloud() {
   const s = seed()
-  const { error } = await client().rpc('rf_reset', { p: group(entries(s)) })
+  const { error } = await post('rf_reset', { p: group(entries(s)) })
   if (error) throw error
   adopt((await fetchAll()) || s)
 }
 
 // Devuelve el id del usuario si correo + contraseña son correctos; si no, null.
 export async function cloudLogin(email: string, pass: string) {
-  const { data, error } = await client().rpc('rf_login', { p_email: email, p_pass: pass })
+  const { data, error } = await post<string>('rf_login', { p_email: email, p_pass: pass })
   if (error) throw error
-  return data as string | null
+  return data
 }
