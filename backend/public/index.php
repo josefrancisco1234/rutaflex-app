@@ -1,0 +1,81 @@
+<?php
+declare(strict_types=1);
+
+// Punto de entrada. Todos los endpoints son POST con cuerpo JSON:
+//   POST /api/data   POST /api/sync   POST /api/login   POST /api/reset
+// Desarrollo:  php -S localhost:8000 -t backend/public backend/public/index.php
+
+require __DIR__ . '/../src/Config.php';
+require __DIR__ . '/../src/Database.php';
+require __DIR__ . '/../src/Api.php';
+
+use RutaFlex\Api;
+use RutaFlex\Config;
+use RutaFlex\HttpError;
+
+const MAX_BODY = 5 * 1024 * 1024;
+
+function respond(int $status, string $body): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo $body;
+    exit;
+}
+
+function fail(int $status, string $message): never
+{
+    respond($status, json_encode(['error' => $message], JSON_UNESCAPED_UNICODE));
+}
+
+// CORS: solo orígenes listados en CORS_ORIGIN (vacío = mismo origen).
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowed = array_filter(array_map('trim', explode(',', Config::get('CORS_ORIGIN'))));
+if ($origin !== '' && (in_array('*', $allowed, true) || in_array($origin, $allowed, true))) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+}
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+set_exception_handler(function (Throwable $e): void {
+    if ($e instanceof HttpError) {
+        fail($e->status, $e->getMessage());
+    }
+    error_log('[rutaflex] ' . $e);
+    fail(500, 'Error interno del servidor');
+});
+
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+if (!preg_match('#/api/(data|sync|login|reset)/?$#', $path, $m)) {
+    fail(404, 'Endpoint no encontrado');
+}
+if ($method !== 'POST') {
+    header('Allow: POST, OPTIONS');
+    fail(405, 'Solo se permite POST');
+}
+
+$raw = file_get_contents('php://input', false, null, 0, MAX_BODY + 1);
+if ($raw === false || strlen($raw) > MAX_BODY) {
+    fail(413, 'Cuerpo demasiado grande');
+}
+$input = $raw === '' ? [] : json_decode($raw, true);
+if (!is_array($input)) {
+    fail(400, 'JSON inválido');
+}
+
+$api = new Api();
+respond(200, match ($m[1]) {
+    'data' => $api->data($input),
+    'sync' => $api->sync($input),
+    'login' => $api->login($input),
+    'reset' => $api->reset($input),
+});

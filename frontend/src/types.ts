@@ -1,4 +1,4 @@
-// Modelo de datos de la app. En Supabase cada entidad tiene su tabla (ver backend/supabase/schema.sql).
+// Modelo de datos de la app. En PostgreSQL cada entidad tiene su tabla (ver backend/schema.sql).
 
 // Coordenada [latitud, longitud].
 export type LatLng = [number, number]
@@ -12,7 +12,7 @@ export interface User {
   role: Role
   name: string
   email: string
-  pass?: string          // solo en modo local; en Supabase se guarda cifrada en credenciales
+  pass?: string          // solo en modo local; en el backend se guarda cifrada en credenciales
   car?: string           // vehículo y placa (conductores)
   scores: number[]       // calificaciones recibidas (1 a 5)
   completed: number      // viajes completados

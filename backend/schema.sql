@@ -1,0 +1,76 @@
+-- =====================================================================
+-- RutaFlex · Base de datos PostgreSQL (backend PHP)
+-- Uso:  createdb rutaflex
+--       psql -d rutaflex -f backend/schema.sql
+-- Es idempotente: se puede volver a ejecutar sin romper nada.
+-- =====================================================================
+
+-- ---------- Tablas ----------------------------------------------------
+
+create table if not exists usuarios (
+  id                 text primary key,
+  seq                bigserial,
+  rol                text not null check (rol in ('pasajero', 'conductor')),
+  nombre             text not null,
+  email              text not null unique,
+  vehiculo           text,
+  puntuaciones       int[] not null default '{}',
+  viajes_completados int not null default 0,
+  creado_en          timestamptz not null default now()
+);
+
+-- Contraseñas separadas y cifradas con bcrypt (password_hash de PHP).
+-- Ningún endpoint devuelve esta tabla.
+create table if not exists credenciales (
+  usuario_id text primary key references usuarios(id) on delete cascade,
+  pass_hash  text not null
+);
+
+create table if not exists viajes (
+  id             text primary key,
+  seq            bigserial,
+  conductor_id   text not null references usuarios(id) on delete cascade,
+  origen         text not null,
+  destino        text not null,
+  hora           text not null,
+  asientos       int not null check (asientos >= 0),
+  precio         double precision,
+  estado         text not null check (estado in ('Activo', 'En curso', 'Finalizado')),
+  miembros       text[] not null default '{}',
+  paradas        text[],
+  taxi           double precision,
+  fecha          text,
+  extra          jsonb not null default '{}',  -- coordenadas, ruta, posición en vivo, progreso
+  actualizado_en timestamptz not null default now()
+);
+
+create table if not exists mensajes (
+  id           text primary key,
+  seq          bigserial,
+  viaje_id     text not null references viajes(id) on delete cascade,
+  remitente_id text not null references usuarios(id) on delete cascade,
+  texto        text not null,
+  hora         text,
+  creado_en    timestamptz not null default now()
+);
+
+create table if not exists calificaciones (
+  id         text primary key,
+  seq        bigserial,
+  viaje_id   text not null references viajes(id) on delete cascade,
+  de_id      text not null references usuarios(id) on delete cascade,
+  para_id    text not null references usuarios(id) on delete cascade,
+  puntuacion int not null check (puntuacion between 1 and 5),
+  creado_en  timestamptz not null default now()
+);
+
+-- Versión de datos: sube al reiniciar la demo para que todos los clientes recarguen.
+create table if not exists rf_meta (
+  id      int primary key,
+  version int not null default 0
+);
+insert into rf_meta (id, version) values (1, 0) on conflict (id) do nothing;
+
+create index if not exists viajes_conductor_idx on viajes (conductor_id);
+create index if not exists mensajes_viaje_idx on mensajes (viaje_id, seq);
+create index if not exists calificaciones_para_idx on calificaciones (para_id);

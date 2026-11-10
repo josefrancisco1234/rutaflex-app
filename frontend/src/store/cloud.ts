@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { supabase, supabaseUrl, supabaseKey, cloudConfigured } from '../lib/supabase'
+import { apiUrl, cloudConfigured } from '../lib/api'
 import { getDb, replaceDb, onSave, setTabSync } from './db'
 import { seed } from '../data/seed'
 import type { Db, Message, Rating, Role, Trip, TripStatus, User } from '../types'
@@ -15,20 +14,13 @@ export function useCloudStatus() {
   return useSyncExternalStore(fn => { statusListeners.add(fn); return () => statusListeners.delete(fn) }, () => status)
 }
 
-// Solo se llama cuando hay .env (cloudConfigured); si no, es un error de programación.
-function client() {
-  if (!supabase) throw new Error('Supabase no está configurado')
-  return supabase
-}
-
-// POST a una función del backend: https://<proyecto>.supabase.co/rest/v1/rpc/<fn> (definidas en schema.sql).
-// La key sb_publishable_ va solo en el header apikey, nunca como Bearer.
-async function post<T = null>(fn: string, body: object): Promise<{ data: T | null, error: unknown }> {
+// Todos los endpoints del backend PHP son POST con cuerpo JSON: <apiUrl>/data | sync | login | reset.
+async function post<T = null>(endpoint: string, body: object): Promise<{ data: T | null, error: unknown }> {
   try {
-    if (!supabaseUrl || !supabaseKey) throw new Error('Supabase no está configurado')
-    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/${fn}`, {
+    if (!apiUrl) throw new Error('El backend no está configurado')
+    const res = await fetch(`${apiUrl}/${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: supabaseKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     const text = await res.text()
@@ -39,7 +31,7 @@ async function post<T = null>(fn: string, body: object): Promise<{ data: T | nul
   }
 }
 
-// ---------- filas de la base de datos (columnas de schema.sql) ----------
+// ---------- filas de la base de datos (columnas de backend/schema.sql) ----------
 type UserRow = { id: string, rol: Role, nombre: string, email: string, vehiculo: string | null, puntuaciones: number[] | null, viajes_completados: number | null }
 type TripRow = {
   id: string, conductor_id: string, origen: string, destino: string, hora: string, asientos: number, precio: number | null,
@@ -139,60 +131,89 @@ async function flush() {
   if (!changed.length) return
   busy = true
   changed.forEach(e => remember(e.key, e.json))
-  const { error } = await post('rf_sync', { p: group(changed) })
-  if (error) { console.error('[supabase] rf_sync', error); changed.forEach(e => last.delete(e.key)); setStatus('error') }
+  const { error } = await post('sync', { p: group(changed) })
+  if (error) { console.error('[backend] sync', error); changed.forEach(e => last.delete(e.key)); setStatus('error') }
   else if (status !== 'online') setStatus('online')
   busy = false
   if (again) { again = false; schedule() }
 }
 
 // ---------- descarga ----------
-async function rows<T>(table: string) {
-  const { data, error } = await client().from(table).select('*').order('seq')
+interface Snapshot { version: number, usuarios: UserRow[], viajes: TripRow[], mensajes: MessageRow[], calificaciones: RatingRow[] }
+let lastHash = '', knownVersion = -1
+
+// POST /data. Con el hash de lo último recibido, el servidor responde unchanged si nada cambió.
+async function fetchSnapshot(useHash: boolean): Promise<Snapshot | null> {
+  const { data, error } = await post<Snapshot & { hash?: string, unchanged?: boolean }>('data', useHash && lastHash ? { hash: lastHash } : {})
   if (error) throw error
-  return data as T[]
+  if (!data || data.unchanged) return null
+  lastHash = data.hash || ''
+  return data
+}
+function toDb(s: Snapshot) {
+  if (!s.usuarios.length) return null
+  const db: Db = { users: s.usuarios.map(fromUser), trips: s.viajes.map(fromTrip), messages: {}, ratings: s.calificaciones.map(fromRate) }
+  s.mensajes.forEach(row => (db.messages[row.viaje_id] ??= []).push(fromMsg(row)))
+  return db
 }
 async function fetchAll() {
-  const [u, t, m, r] = await Promise.all([rows<UserRow>('usuarios'), rows<TripRow>('viajes'), rows<MessageRow>('mensajes'), rows<RatingRow>('calificaciones')])
-  if (!u.length) return null
-  const db: Db = { users: u.map(fromUser), trips: t.map(fromTrip), messages: {}, ratings: r.map(fromRate) }
-  m.forEach(row => (db.messages[row.viaje_id] ??= []).push(fromMsg(row)))
-  return db
+  const s = await fetchSnapshot(false)
+  if (!s) return null
+  knownVersion = s.version
+  return toDb(s)
 }
 function adopt(db: Db) {
   last.clear(); recent.clear()
   entries(db).forEach(e => remember(e.key, e.json))
   replaceDb(db)
 }
-let reloadTimer: ReturnType<typeof setTimeout> | undefined
-function reload() {
-  clearTimeout(reloadTimer)
-  reloadTimer = setTimeout(async () => { try { const d = await fetchAll(); if (d) adopt(d) } catch (e) { console.error(e) } }, 300)
-}
 
-// ---------- tiempo real ----------
-function onChange(ev: RealtimePostgresChangesPayload<Record<string, unknown>>) {
-  if (ev.table === 'rf_meta') return reload()
-  if (ev.eventType === 'DELETE' || !ev.new) return
-  const db = getDb(), r = ev.new
+// ---------- sincronización en vivo (sondeo con POST /data cada 1,5 s) ----------
+// Aplica una fila recibida; devuelve true si cambió algo local.
+function applyRow(table: 'usuarios' | 'viajes' | 'mensajes' | 'calificaciones', r: UserRow | TripRow | MessageRow | RatingRow): boolean {
+  const db = getDb()
   let key: string, json: string, apply: () => void
-  if (ev.table === 'usuarios') {
+  if (table === 'usuarios') {
     const u = fromUser(r as UserRow); key = 'u:' + u.id; json = stable(userP(u))
     apply = () => { const i = db.users.findIndex(x => x.id === u.id); if (i >= 0) db.users[i] = { ...u, pass: db.users[i].pass }; else db.users.push(u) }
-  } else if (ev.table === 'viajes') {
+  } else if (table === 'viajes') {
     const t = fromTrip(r as TripRow); key = 't:' + t.id; json = stable(tripP(t))
     apply = () => { const i = db.trips.findIndex(x => x.id === t.id); if (i >= 0) db.trips[i] = t; else db.trips.push(t) }
-  } else if (ev.table === 'mensajes') {
+  } else if (table === 'mensajes') {
     const row = r as MessageRow, m = fromMsg(row); key = 'm:' + m.id; json = stable(msgP(row.viaje_id, m))
     apply = () => { const list = (db.messages[row.viaje_id] ??= []); const i = list.findIndex(x => x.id === m.id); if (i >= 0) list[i] = m; else list.push(m) }
-  } else if (ev.table === 'calificaciones') {
+  } else {
     const x = fromRate(r as RatingRow); key = 'r:' + x.id; json = stable(rateP(x))
     apply = () => { db.ratings ??= []; if (!db.ratings.some(y => y.id === x.id)) db.ratings.push(x) }
-  } else return
-  if ((recent.get(key) || []).includes(json)) return
+  }
+  // Ignora lo que ya tenemos sincronizado y nuestro propio eco.
+  if (last.get(key) === json || (recent.get(key) || []).includes(json)) return false
   remember(key, json)
   apply()
-  replaceDb(db)
+  return true
+}
+
+let polling = false
+async function poll() {
+  if (polling || document.hidden || busy || timer) return
+  polling = true
+  try {
+    const s = await fetchSnapshot(true)
+    if (!s) return
+    if (s.version !== knownVersion) {            // demo reiniciada: recarga completa
+      knownVersion = s.version
+      const d = toDb(s)
+      if (d) adopt(d)
+      return
+    }
+    let changed = false
+    s.usuarios.forEach(r => { changed = applyRow('usuarios', r) || changed })
+    s.viajes.forEach(r => { changed = applyRow('viajes', r) || changed })
+    s.mensajes.forEach(r => { changed = applyRow('mensajes', r) || changed })
+    s.calificaciones.forEach(r => { changed = applyRow('calificaciones', r) || changed })
+    if (changed) replaceDb(getDb())
+  } catch (e) { console.error('[backend] sondeo', e) }
+  finally { polling = false }
 }
 
 // ---------- API pública ----------
@@ -204,12 +225,10 @@ export async function initCloud() {
     if (d) adopt(d)
     else await resetCloud()
     onSave(schedule)
-    client().channel('rutaflex')
-      .on('postgres_changes', { event: '*', schema: 'public' }, onChange)
-      .subscribe()
+    setInterval(poll, 1500)
     setStatus('online')
   } catch (e) {
-    console.error('[supabase] sin conexión, se usa modo local:', e)
+    console.error('[backend] sin conexión, se usa modo local:', e)
     setTabSync(true)
     setStatus('error')
   }
@@ -217,14 +236,14 @@ export async function initCloud() {
 
 export async function resetCloud() {
   const s = seed()
-  const { error } = await post('rf_reset', { p: group(entries(s)) })
+  const { error } = await post('reset', { p: group(entries(s)) })
   if (error) throw error
   adopt((await fetchAll()) || s)
 }
 
 // Devuelve el id del usuario si correo + contraseña son correctos; si no, null.
 export async function cloudLogin(email: string, pass: string) {
-  const { data, error } = await post<string>('rf_login', { p_email: email, p_pass: pass })
+  const { data, error } = await post<string>('login', { email, pass })
   if (error) throw error
   return data
 }

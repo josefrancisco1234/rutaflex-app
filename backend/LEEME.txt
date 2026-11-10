@@ -1,0 +1,28 @@
+RutaFlex · Backend PHP 8.1+ y PostgreSQL
+
+Requisitos: PHP 8.1+ con la extensión pdo_pgsql, y PostgreSQL 12+.
+
+1) Base de datos
+   createdb rutaflex
+   psql -d rutaflex -f backend/schema.sql
+
+2) Configuración
+   copiar backend/.env.example a backend/.env y poner los datos de conexión.
+
+3) Servidor de desarrollo (puerto 8000)
+   php -S localhost:8000 -t backend/public backend/public/index.php
+
+4) Frontend (Vite reenvía /api al puerto 8000)
+   cd frontend
+   copiar .env.example a .env
+   npm install
+   npm run dev
+
+API: todos los endpoints son POST con cuerpo JSON.
+   POST /api/data    {hash?}      -> datos completos, o {"unchanged":true} si el hash coincide
+   POST /api/sync    {p:{users,trips,messages,ratings}}
+   POST /api/login   {email,pass} -> "id-usuario" o null
+   POST /api/reset   {p:{...}}    -> reinicia la demo con los datos enviados
+
+En producción con Apache se usa backend/public como raíz (el .htaccess redirige a index.php)
+y el frontend (npm run build) se sirve desde el mismo dominio bajo la ruta que corresponda.

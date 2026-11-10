@@ -1,6 +1,6 @@
 import type { Db, LatLng } from '../types'
 
-// Datos mock iniciales (ficticios). También se usan para cargar Supabase al reiniciar la demo.
+// Datos mock iniciales (ficticios). También se usan para cargar la base de datos al reiniciar la demo.
 export const ULIMA: LatLng = [-12.0848, -76.9712]
 
 export const seed = (): Db => ({

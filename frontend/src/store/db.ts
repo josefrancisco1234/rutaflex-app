@@ -3,7 +3,7 @@ import { seed } from '../data/seed'
 import type { Db, Trip } from '../types'
 
 // Estado de datos de la app: un objeto `db` que se muta y luego se confirma con save().
-// save() guarda en localStorage, re-renderiza React y avisa a la capa de Supabase.
+// save() guarda en localStorage, re-renderiza React y avisa a la capa del backend.
 export const KEY = 'rutaflex-r12'
 
 function load(): Db {
@@ -35,7 +35,7 @@ export const trip = (id: string) => db.trips.find(t => t.id === id)
 export const passengers = (t: Trip) => t.members.filter(id => id !== t.driver)
 export const active = (t: Trip | undefined): t is Trip => !!t && (t.status === 'Activo' || t.status === 'En curso')
 
-// Sin Supabase: sincroniza entre pestañas del mismo navegador.
+// Sin backend: sincroniza entre pestañas del mismo navegador.
 window.addEventListener('storage', e => {
   if (!tabSync || e.key !== KEY || !e.newValue) return
   try { db = JSON.parse(e.newValue) } catch { return }

@@ -15,7 +15,7 @@ export default function DemoLab() {
     app.resetSession()
     clearRouteTried()
     if (cloudReady()) {
-      try { await resetCloud() } catch (e) { console.error(e); return toast('No se pudo reiniciar en Supabase.') }
+      try { await resetCloud() } catch (e) { console.error(e); return toast('No se pudo reiniciar en el servidor.') }
     } else replaceDb(seed())
     go('login')
     toast('Datos de demostración restablecidos')
@@ -51,7 +51,7 @@ export default function DemoLab() {
   return (
     <details className="demo">
       <summary>Laboratorio de exposición · controles de datos, no funciones del producto</summary>
-      <p className="muted">Escenarios simulados para comprobar restricciones. Tip: abre otra pestaña u otro dispositivo, entra como pasajero (Gabriel) y aquí como conductor (Andrea): el pasajero ve el auto moverse en vivo vía Supabase.</p>
+      <p className="muted">Escenarios simulados para comprobar restricciones. Tip: abre otra pestaña u otro dispositivo, entra como pasajero (Gabriel) y aquí como conductor (Andrea): el pasajero ve el auto moverse en vivo vía el servidor.</p>
       <button className="secondary" onClick={resetDemo}>Reiniciar demostración</button>
       {current && !isDriver && <>
         <button className="secondary" onClick={() => go('trip', 't1')}>Mi viaje (t1)</button>

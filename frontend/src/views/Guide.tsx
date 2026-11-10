@@ -16,7 +16,7 @@ const MATRIX = [
   ['EXT-1', 'Perfiles pasajero y conductor', 'Login / navegación', 'Entrar como Gabriel y como Andrea', 'Menú y pantallas distintas según el rol', 'Extensión R1.1'],
   ['EXT-2', 'Mapa interactivo del viaje', 'Detalle / Seguir viaje / Gestionar viaje', 'Abrir t1; iniciar viaje; simular recorrido; usar GPS', 'Ruta, paradas y posición del conductor en vivo', 'Extensión R1.1'],
   ['EXT-3', 'Terminar viaje al llegar', 'Gestionar viaje (conductor)', 'Intentar terminar antes de llegar; llegar y terminar', 'Botón bloqueado hasta llegar; viaje pasa a Finalizado e historial', 'Extensión R1.1'],
-  ['EXT-4', 'Backend y base de datos', 'Toda la app', 'Abrir pasajero y conductor en dos dispositivos; reiniciar demo', 'Datos persistentes en Supabase y seguimiento en vivo entre dispositivos', 'Release 1.2'],
+  ['EXT-4', 'Backend y base de datos', 'Toda la app', 'Abrir pasajero y conductor en dos dispositivos; reiniciar demo', 'Datos persistentes en PostgreSQL y seguimiento en vivo entre dispositivos', 'Release 1.2'],
 ]
 
 export default function Guide() {
@@ -32,7 +32,7 @@ export default function Guide() {
         </section>
         <section className="card">
           <h2>2. Historias y pantallas mínimas</h2>
-          <p><strong>Sprint 1:</strong> US01, US05, US09, US13, US17, US21.<br /><strong>Sprint 2:</strong> US02, US06, US10, US14, US18, US22.<br /><strong>Extensiones:</strong> EXT-1 perfiles, EXT-2 mapa, EXT-3 terminar viaje, EXT-4 backend Supabase.</p>
+          <p><strong>Sprint 1:</strong> US01, US05, US09, US13, US17, US21.<br /><strong>Sprint 2:</strong> US02, US06, US10, US14, US18, US22.<br /><strong>Extensiones:</strong> EXT-1 perfiles, EXT-2 mapa, EXT-3 terminar viaje, EXT-4 backend PHP + PostgreSQL.</p>
           <p><strong>Pasajero:</strong> buscar viajes, detalle con mapa, reservar asiento, Mis viajes, seguir viaje en vivo, chat, historial, ahorro, perfil.<br /><strong>Conductor:</strong> panel con rutas activas, publicar ruta con mapa, gestionar viaje (iniciar · simular/GPS · terminar), chat, historial, ganancias, perfil.</p>
         </section>
         <section className="card">
@@ -46,13 +46,13 @@ export default function Guide() {
         </section>
         <section className="card">
           <h2>5. Arquitectura</h2>
-          <p><strong>Frontend:</strong> React 18 + TypeScript + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> Supabase (PostgreSQL). Tablas usuarios, credenciales, viajes, mensajes y calificaciones; contraseñas cifradas con bcrypt; RLS de solo lectura; escrituras mediante funciones (rf_sync, rf_login, rf_reset) y Realtime para el seguimiento en vivo.</p>
-          <p>Mapa: Leaflet + teselas de OpenStreetMap/CARTO; la ruta por calles se pide a OSRM y, si no responde, se dibuja una línea por las paradas. Sin Supabase la app funciona en modo local (localStorage).</p>
+          <p><strong>Frontend:</strong> React 18 + TypeScript + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> PHP 8 + PostgreSQL. Tablas usuarios, credenciales, viajes, mensajes y calificaciones; contraseñas cifradas con bcrypt (password_hash); API con endpoints solo POST (/api/data, /api/sync, /api/login, /api/reset) y sondeo cada 1,5 s para el seguimiento en vivo.</p>
+          <p>Mapa: Leaflet + teselas de OpenStreetMap/CARTO; la ruta por calles se pide a OSRM y, si no responde, se dibuja una línea por las paradas. Sin backend la app funciona en modo local (localStorage).</p>
         </section>
         <section className="card">
           <h2>6. POR DEFINIR y límites</h2>
           <p>Lista completa de dominios institucionales; política de contraseña; longitud, vigencia y reintentos OTP; límite máximo de asientos; política de calificaciones repetidas; método productivo de tarifa taxi; pagos y comisiones del conductor; radio de llegada productivo (demo: 150 m con GPS).</p>
-          <p>El recorrido se simula o usa el GPS del navegador. La autenticación es propia del prototipo (sin Supabase Auth); en producción se usaría Supabase Auth con OTP real por correo.</p>
+          <p>El recorrido se simula o usa el GPS del navegador. La autenticación es propia del prototipo (sesión propia del prototipo); en producción se usaría autenticación con OTP real por correo.</p>
         </section>
         <section className="card">
           <h2>7. Matriz final de trazabilidad</h2>
@@ -69,7 +69,7 @@ export default function Guide() {
         </section>
         <section className="card">
           <h2>8. Recorrido recomendado de exposición</h2>
-          <p>1. Login incorrecto y luego <strong>Pasajero (Gabriel)</strong>.<br />2. Buscar Universidad de Lima y Cusco; abrir un viaje y ver la ruta en el mapa; reservar asiento.<br />3. Mis viajes → t1 → "Esperando a que Andrea inicie el viaje".<br />4. En otra pestaña o celular: <strong>Conductor (Andrea)</strong> → Panel → t1 → Iniciar viaje → Simular recorrido.<br />5. Volver a Gabriel: el auto avanza en vivo (Supabase Realtime).<br />6. Mostrar que "Terminar viaje" está bloqueado hasta llegar; al llegar, terminar viaje.<br />7. Gabriel ve "Viaje terminado" y califica a Andrea; revisar Ahorro (pasajero) y Ganancias (conductor).<br />8. Chat, reputación, publicar ruta con mapa y registro con elección de rol.</p>
+          <p>1. Login incorrecto y luego <strong>Pasajero (Gabriel)</strong>.<br />2. Buscar Universidad de Lima y Cusco; abrir un viaje y ver la ruta en el mapa; reservar asiento.<br />3. Mis viajes → t1 → "Esperando a que Andrea inicie el viaje".<br />4. En otra pestaña o celular: <strong>Conductor (Andrea)</strong> → Panel → t1 → Iniciar viaje → Simular recorrido.<br />5. Volver a Gabriel: el auto avanza en vivo (sincronización con el servidor).<br />6. Mostrar que "Terminar viaje" está bloqueado hasta llegar; al llegar, terminar viaje.<br />7. Gabriel ve "Viaje terminado" y califica a Andrea; revisar Ahorro (pasajero) y Ganancias (conductor).<br />8. Chat, reputación, publicar ruta con mapa y registro con elección de rol.</p>
         </section>
       </div>
     </>

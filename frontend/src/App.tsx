@@ -29,7 +29,7 @@ const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ru
 const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings']
 const PASSENGER_ONLY: ViewKey[] = ['home', 'mytrips', 'savings', 'detail']
 const PUBLIC: ViewKey[] = ['login', 'register', 'otp', 'guide']
-const STATUS_TEXT: Record<CloudStatus, string> = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Supabase en línea', error: '⚠️ Sin Supabase · modo local' }
+const STATUS_TEXT: Record<CloudStatus, string> = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Servidor en línea', error: '⚠️ Sin servidor · modo local' }
 
 const homeFor = (id: string): ViewKey => user(id)?.role === 'conductor' ? 'dhome' : 'home'
 

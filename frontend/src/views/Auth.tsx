@@ -43,7 +43,7 @@ export function Login() {
     let id: string | null = null
     if (cloudReady()) {
       setBusy(true)
-      try { id = await cloudLogin(email, pass) } catch { toast('No se pudo conectar con Supabase.') }
+      try { id = await cloudLogin(email, pass) } catch { toast('No se pudo conectar con el servidor.') }
       setBusy(false)
     } else {
       id = getDb().users.find(u => u.email === email && u.pass === pass)?.id ?? null
