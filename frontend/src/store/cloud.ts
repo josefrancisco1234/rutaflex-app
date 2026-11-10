@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { apiUrl, cloudConfigured } from '../lib/api'
 import { getDb, replaceDb, onSave, setTabSync } from './db'
 import { seed } from '../data/seed'
-import type { Db, Message, Rating, Role, Trip, TripStatus, User } from '../types'
+import type { Db, Message, Notice, NoticeKind, Rating, Role, Trip, TripStatus, User } from '../types'
 
 // ---------- estado de conexión ----------
 export type CloudStatus = 'local' | 'connecting' | 'online' | 'error'
@@ -32,16 +32,18 @@ async function post<T = null>(endpoint: string, body: object): Promise<{ data: T
 }
 
 // ---------- filas de la base de datos (columnas de backend/schema.sql) ----------
-type UserRow = { id: string, rol: Role, nombre: string, email: string, vehiculo: string | null, puntuaciones: number[] | null, viajes_completados: number | null }
+type UserRow = { id: string, rol: Role, nombre: string, email: string, vehiculo: string | null, puntuaciones: number[] | null, viajes_completados: number | null, verificado: boolean | null, extra: Partial<User> | null }
 type TripRow = {
   id: string, conductor_id: string, origen: string, destino: string, hora: string, asientos: number, precio: number | null,
   estado: TripStatus, miembros: string[] | null, paradas: string[] | null, taxi: number | null, fecha: string | null, extra: Partial<Trip> | null
 }
 type MessageRow = { id: string, viaje_id: string, remitente_id: string, texto: string, hora: string }
 type RatingRow = { id: string, viaje_id: string, de_id: string, para_id: string, puntuacion: number }
+type NoticeRow = { id: string, usuario_id: string, tipo: NoticeKind, texto: string, viaje_id: string | null, leida: boolean, creado_en: string }
 
 // ---------- conversión app ⇄ filas de la base de datos ----------
 const TRIP_COLS: string[] = ['id', 'driver', 'origin', 'dest', 'time', 'seats', 'price', 'status', 'members', 'stops', 'taxi', 'date']
+const USER_COLS: string[] = ['id', 'role', 'name', 'email', 'pass', 'car', 'scores', 'completed', 'verified']
 const uid = (p: string) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 
 // JSON con claves ordenadas: permite comparar lo local con lo que llega de la base.
@@ -54,7 +56,11 @@ function stable(v: unknown): string {
   return JSON.stringify(v ?? null)
 }
 
-const userP = (u: User) => ({ id: u.id, role: u.role, name: u.name, email: u.email, car: u.car ?? null, scores: u.scores || [], completed: u.completed || 0 })
+const userP = (u: User) => {
+  const extra: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(u)) if (!USER_COLS.includes(k) && v !== undefined) extra[k] = v
+  return { id: u.id, role: u.role, name: u.name, email: u.email, car: u.car ?? null, scores: u.scores || [], completed: u.completed || 0, verified: !!u.verified, extra }
+}
 const tripP = (t: Trip) => {
   const extra: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(t)) if (!TRIP_COLS.includes(k) && v !== undefined) extra[k] = v
@@ -62,10 +68,12 @@ const tripP = (t: Trip) => {
 }
 const msgP = (tripId: string, m: Message) => ({ id: m.id, trip: tripId, sender: m.sender, text: m.text, time: m.time })
 const rateP = (r: Rating) => ({ id: r.id, trip: r.trip, from: r.from, to: r.to, score: r.score })
+const noticeP = (n: Notice) => ({ id: n.id, to: n.to, kind: n.kind, text: n.text, trip: n.trip ?? null, at: n.at, read: n.read })
 
 const fromUser = (r: UserRow) => {
-  const u: User = { id: r.id, role: r.rol, name: r.nombre, email: r.email, scores: r.puntuaciones || [], completed: r.viajes_completados || 0 }
+  const u: User = { ...(r.extra || {}), id: r.id, role: r.rol, name: r.nombre, email: r.email, scores: r.puntuaciones || [], completed: r.viajes_completados || 0 }
   if (r.vehiculo != null) u.car = r.vehiculo
+  if (r.verificado) u.verified = true
   return u
 }
 const fromTrip = (r: TripRow) => {
@@ -77,9 +85,14 @@ const fromTrip = (r: TripRow) => {
 }
 const fromMsg = (r: MessageRow): Message => ({ id: r.id, sender: r.remitente_id, text: r.texto, time: r.hora })
 const fromRate = (r: RatingRow): Rating => ({ id: r.id, trip: r.viaje_id, from: r.de_id, to: r.para_id, score: r.puntuacion })
+const fromNotice = (r: NoticeRow): Notice => {
+  const n: Notice = { id: r.id, to: r.usuario_id, kind: r.tipo, text: r.texto, at: r.creado_en, read: r.leida }
+  if (r.viaje_id != null) n.trip = r.viaje_id
+  return n
+}
 
 // Lista todas las entidades con su clave y su JSON canónico.
-type Kind = 'users' | 'trips' | 'messages' | 'ratings'
+type Kind = 'users' | 'trips' | 'messages' | 'ratings' | 'notices'
 interface Entry { key: string, kind: Kind, json: string, payload: object }
 
 function entries(db: Db) {
@@ -102,10 +115,14 @@ function entries(db: Db) {
     const p = rateP(r)
     out.push({ key: 'r:' + r.id, kind: 'ratings', json: stable(p), payload: p })
   })
+  ;(db.notices || []).forEach(n => {
+    const p = noticeP(n)
+    out.push({ key: 'n:' + n.id, kind: 'notices', json: stable(p), payload: p })
+  })
   return out
 }
 const group = (list: Entry[]) => {
-  const g: Record<Kind, object[]> = { users: [], trips: [], messages: [], ratings: [] }
+  const g: Record<Kind, object[]> = { users: [], trips: [], messages: [], ratings: [], notices: [] }
   list.forEach(e => g[e.kind].push(e.payload))
   return g
 }
@@ -139,7 +156,7 @@ async function flush() {
 }
 
 // ---------- descarga ----------
-interface Snapshot { version: number, usuarios: UserRow[], viajes: TripRow[], mensajes: MessageRow[], calificaciones: RatingRow[] }
+interface Snapshot { version: number, usuarios: UserRow[], viajes: TripRow[], mensajes: MessageRow[], calificaciones: RatingRow[], notificaciones?: NoticeRow[] }
 let lastHash = '', knownVersion = -1
 
 // POST /data. Con el hash de lo último recibido, el servidor responde unchanged si nada cambió.
@@ -152,7 +169,7 @@ async function fetchSnapshot(useHash: boolean): Promise<Snapshot | null> {
 }
 function toDb(s: Snapshot) {
   if (!s.usuarios.length) return null
-  const db: Db = { users: s.usuarios.map(fromUser), trips: s.viajes.map(fromTrip), messages: {}, ratings: s.calificaciones.map(fromRate) }
+  const db: Db = { users: s.usuarios.map(fromUser), trips: s.viajes.map(fromTrip), messages: {}, ratings: s.calificaciones.map(fromRate), notices: (s.notificaciones || []).map(fromNotice) }
   s.mensajes.forEach(row => (db.messages[row.viaje_id] ??= []).push(fromMsg(row)))
   return db
 }
@@ -170,7 +187,7 @@ function adopt(db: Db) {
 
 // ---------- sincronización en vivo (sondeo con POST /data cada 1,5 s) ----------
 // Aplica una fila recibida; devuelve true si cambió algo local.
-function applyRow(table: 'usuarios' | 'viajes' | 'mensajes' | 'calificaciones', r: UserRow | TripRow | MessageRow | RatingRow): boolean {
+function applyRow(table: 'usuarios' | 'viajes' | 'mensajes' | 'calificaciones' | 'notificaciones', r: UserRow | TripRow | MessageRow | RatingRow | NoticeRow): boolean {
   const db = getDb()
   let key: string, json: string, apply: () => void
   if (table === 'usuarios') {
@@ -182,6 +199,9 @@ function applyRow(table: 'usuarios' | 'viajes' | 'mensajes' | 'calificaciones', 
   } else if (table === 'mensajes') {
     const row = r as MessageRow, m = fromMsg(row); key = 'm:' + m.id; json = stable(msgP(row.viaje_id, m))
     apply = () => { const list = (db.messages[row.viaje_id] ??= []); const i = list.findIndex(x => x.id === m.id); if (i >= 0) list[i] = m; else list.push(m) }
+  } else if (table === 'notificaciones') {
+    const x = fromNotice(r as NoticeRow); key = 'n:' + x.id; json = stable(noticeP(x))
+    apply = () => { db.notices ??= []; const i = db.notices.findIndex(y => y.id === x.id); if (i >= 0) db.notices[i] = x; else db.notices.push(x) }
   } else {
     const x = fromRate(r as RatingRow); key = 'r:' + x.id; json = stable(rateP(x))
     apply = () => { db.ratings ??= []; if (!db.ratings.some(y => y.id === x.id)) db.ratings.push(x) }
@@ -211,6 +231,7 @@ async function poll() {
     s.viajes.forEach(r => { changed = applyRow('viajes', r) || changed })
     s.mensajes.forEach(r => { changed = applyRow('mensajes', r) || changed })
     s.calificaciones.forEach(r => { changed = applyRow('calificaciones', r) || changed })
+    ;(s.notificaciones || []).forEach(r => { changed = applyRow('notificaciones', r) || changed })
     if (changed) replaceDb(getDb())
   } catch (e) { console.error('[backend] sondeo', e) }
   finally { polling = false }
@@ -247,3 +268,24 @@ export async function cloudLogin(email: string, pass: string) {
   if (error) throw error
   return data
 }
+
+// ---------- Endpoints del Release 2 ----------
+// Con el backend en línea, la acción se valida primero en el servidor (que además crea los avisos);
+// sin backend devuelve { ok: true, cloud: false } y la vista aplica la regla en modo local.
+export type ApiResult = { ok: boolean, cloud: boolean, error?: string }
+async function api(fn: string, body: object): Promise<ApiResult> {
+  if (!cloudReady()) return { ok: true, cloud: false }
+  const { error } = await post(fn, body)
+  if (!error) return { ok: true, cloud: true }
+  console.error('[backend] ' + fn, error)
+  const msg = (error as { error?: string, message?: string })
+  return { ok: false, cloud: true, error: msg?.error || msg?.message || 'No se pudo conectar con el servidor.' }
+}
+
+// POST <apiUrl>/<endpoint> (backend/public/index.php · backend/src/Api.php)
+export const apiLogout = (userId: string) => api('logout', { user: userId })
+export const apiUpdateProfile = (userId: string, p: object) => api('profile', { user: userId, p })
+export const apiVerifyIdentity = (userId: string, code: string) => api('verify', { user: userId, code })
+export const apiEditTrip = (tripId: string, driverId: string, p: object) => api('edit-trip', { trip: tripId, driver: driverId, p })
+export const apiCancelTrip = (tripId: string, driverId: string, reason: string) => api('cancel-trip', { trip: tripId, driver: driverId, reason })
+export const apiMarkRead = (userId: string) => api('mark-read', { user: userId })

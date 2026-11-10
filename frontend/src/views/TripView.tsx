@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../context'
-import { getDb, trip, user, save, passengers, active } from '../store/db'
+import { getDb, trip, user, save, passengers, active, notify } from '../store/db'
 import { getPath, pathLen, pointAt, hav, km, liveNumbers } from '../lib/geo'
 import { money, firstName } from '../lib/utils'
 import { ULIMA } from '../data/seed'
@@ -14,7 +14,30 @@ export default function TripView() {
   const t = trip(selected)
   const [sim, setSim] = useState(false)
   const [gps, setGps] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const watch = useRef<number | null>(null)
+  const shareWatch = useRef<number | null>(null)
+
+  // US19 · Compartir mi ubicación en tiempo real con los demás participantes del viaje.
+  function stopShare(clear = true) {
+    if (shareWatch.current !== null) { navigator.geolocation.clearWatch(shareWatch.current); shareWatch.current = null }
+    setSharing(false)
+    const t = trip(selected)
+    if (clear && t?.shares?.[current]) { delete t.shares[current]; save() }
+  }
+  function toggleShare() {
+    if (sharing) { stopShare(); return toast('Dejaste de compartir tu ubicación.') }
+    if (!navigator.geolocation) return toast('Tu navegador no permite geolocalización.')
+    shareWatch.current = navigator.geolocation.watchPosition(pos => {
+      const t = trip(selected)
+      if (!active(t) || !t.members.includes(current)) return stopShare(false)
+      ;(t.shares ??= {})[current] = { p: [pos.coords.latitude, pos.coords.longitude], at: Date.now() }
+      save()
+    }, e => { stopShare(false); toast('No se pudo compartir tu ubicación: ' + e.message) }, { enableHighAccuracy: true, maximumAge: 5000 })
+    setSharing(true)
+    toast('Compartiendo tu ubicación en vivo con los participantes del viaje.')
+  }
+  useEffect(() => () => { if (shareWatch.current !== null) navigator.geolocation.clearWatch(shareWatch.current) }, [])
 
   function stopGps() {
     if (watch.current !== null) { navigator.geolocation.clearWatch(watch.current); watch.current = null }
@@ -58,6 +81,7 @@ export default function TripView() {
     if (getDb().trips.some(x => x.driver === current && x.status === 'En curso')) return toast('Ya tienes otro viaje en curso. Termínalo primero.')
     const p = getPath(t)
     Object.assign(t, { status: 'En curso', started: Date.now(), progress: 0, gps: false, arrived: false, pos: p ? p[0] : null })
+    notify(passengers(t), 'viaje', firstName(me.name) + ' inició el viaje ' + t.origin + ' → ' + t.dest + '. Síguelo en vivo en el mapa.', t.id)
     save()
     toast('Viaje iniciado. Los pasajeros ya ven tu ubicación.')
   }
@@ -102,6 +126,8 @@ export default function TripView() {
     t.km = dist
     t.taxi = Math.max((t.price || 0) + 5, Math.round(8 + dist * 2.2))
     t.members.forEach(id => { const x = user(id); if (x) x.completed++ })
+    delete t.shares
+    notify(passengers(t), 'viaje', 'Llegaste a ' + t.dest + '. El viaje terminó: ya puedes calificar a ' + firstName(me.name) + '.', t.id)
     save()
     setModal({ type: 'end', dest: t.dest, dist, mins, ps: ps.length, income: (t.price || 0) * ps.length })
     toast('Viaje terminado y registrado en el historial.')
@@ -114,6 +140,29 @@ export default function TripView() {
       : <p className="muted">Aún no hay pasajeros. Puedes salir igual.</p>}
   </>
 
+  const shared = Object.entries(t.shares || {}).filter(([id]) => id !== current)
+  const sharedList = shared.length > 0 && <>
+    <h3 style={{ marginTop: 16 }}>Ubicaciones compartidas</h3>
+    <ul className="passlist">{shared.map(([id, s]) => <li key={id}><span className="avatar">🧍</span><div><strong>{user(id)?.name}</strong><br /><small>Actualizada hace {ago(s.at)}</small></div></li>)}</ul>
+  </>
+  const shareBox = <div className="sharebox">
+    <div className="row between">
+      <div><strong>US19 · Ubicación en tiempo real</strong><br /><small>{sharing ? '🟢 Compartiendo con ' + (t.members.length - 1) + ' participante(s)' : 'Comparte dónde estás para coordinar el encuentro.'}</small></div>
+      <button className={sharing ? '' : 'secondary'} onClick={toggleShare}>{sharing ? 'Dejar de compartir' : '📡 Compartir mi ubicación'}</button>
+    </div>
+    {sharedList}
+  </div>
+  const cancelledCard = (
+    <div className="card">
+      <div className="tag">Cancelado</div>
+      <h2>Viaje cancelado</h2>
+      <p className="muted">{t.cancelledAt ? new Date(t.cancelledAt).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : ''}</p>
+      <div className="alert bad">Motivo: {t.cancelReason || 'No indicado'}</div>
+      <p>{ps.length} pasajero(s) notificados.</p>
+      <button className="full" onClick={() => go('history')}>Ver historial</button>
+    </div>
+  )
+
   let right
   if (drv) {
     if (t.status === 'Activo') right = (
@@ -124,6 +173,11 @@ export default function TripView() {
         {passengerList}
         <button className="full" onClick={startTrip}>🚦 Iniciar viaje</button>
         {canChat && <button className="secondary full" style={{ marginTop: 10 }} onClick={() => go('chat', t.id)}>Abrir chat del viaje</button>}
+        <div className="btnrow">
+          <button className="secondary" onClick={() => go('edittrip', t.id)}>✏️ Editar ruta</button>
+          <button className="secondary dangertext" onClick={() => setModal({ type: 'cancel', tripId: t.id })}>✖ Cancelar viaje</button>
+        </div>
+        {shareBox}
       </div>
     )
     else if (t.status === 'En curso') right = (
@@ -139,8 +193,10 @@ export default function TripView() {
         <button className="full finish" onClick={endTrip} disabled={!t.arrived}>🏁 Terminar viaje</button>
         <p className="muted" style={{ marginTop: 10 }}>{t.arrived ? '✅ Llegaste al destino. Ya puedes terminar el viaje.' : 'Se habilita al llegar a la ubicación de destino.'}</p>
         <button className="secondary full" onClick={() => go('chat', t.id)}>Abrir chat del viaje</button>
+        {sharedList}
       </div>
     )
+    else if (t.status === 'Cancelado') right = cancelledCard
     else right = (
       <div className="card">
         <div className="tag">Finalizado</div>
@@ -153,16 +209,20 @@ export default function TripView() {
     )
   } else {
     const status = t.status === 'Activo'
-      ? <div className="alert">⏳ Esperando a que {firstName(u.name)} inicie el viaje ({t.time}).</div>
+      ? <><div className="alert">⏳ Esperando a que {firstName(u.name)} inicie el viaje ({t.time}).</div>
+        <button className="secondary full dangertext" style={{ marginBottom: 10 }} onClick={() => setModal({ type: 'cancel', tripId: t.id })}>✖ Cancelar mi reserva</button></>
       : t.status === 'En curso'
         ? <div className="alert">🚗 Tu conductor va en camino. El mapa se actualiza en vivo.</div>
-        : <><div className="alert">🏁 Viaje terminado. ¡Llegaste a {t.dest}!</div><button className="full" onClick={() => rate(t.id)}>Calificar a {firstName(u.name)}</button></>
+        : t.status === 'Cancelado'
+          ? <div className="alert bad">✖ El conductor canceló este viaje.{t.cancelReason ? ' Motivo: ' + t.cancelReason + '.' : ''}</div>
+          : <><div className="alert">🏁 Viaje terminado. ¡Llegaste a {t.dest}!</div><button className="full" onClick={() => rate(t.id)}>Calificar a {firstName(u.name)}</button></>
     right = <>
       <div className="card">
         <div className="tag">Pasajero</div>
         <h2>Tu viaje</h2>
         {status}
         {canChat && <button className="secondary full" onClick={() => go('chat', t.id)}>Abrir chat del viaje</button>}
+        {active(t) && shareBox}
       </div>
       <Profile u={u} />
     </>
@@ -175,8 +235,8 @@ export default function TripView() {
       <div className="split">
         <div className="card">
           <div className="row between"><StatusPill t={t} /><Price t={t} /></div>
-          <TripMap t={t} />
-          <div className="legend"><span>📍 Partida</span><span>🎓 Destino</span><span>◯ Paradas</span><span>🚗 Conductor</span><span>— Ruta</span></div>
+          <TripMap t={t} me={current} />
+          <div className="legend"><span>📍 Partida</span><span>🎓 Destino</span><span>◯ Paradas</span><span>🚗 Conductor</span><span>🧍 Ubicación compartida</span><span>— Ruta</span></div>
           <div style={{ marginTop: 14 }}>
             <small>AVANCE DEL VIAJE</small>
             <div className="progress"><div style={{ width: n.pct + '%' }} /></div>
@@ -191,4 +251,9 @@ export default function TripView() {
       </div>
     </>
   )
+}
+
+function ago(at: number) {
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000))
+  return s < 60 ? s + ' s' : Math.round(s / 60) + ' min'
 }

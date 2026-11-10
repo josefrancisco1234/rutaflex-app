@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 // Punto de entrada. Todos los endpoints son POST con cuerpo JSON:
-//   POST /api/data   POST /api/sync   POST /api/login   POST /api/reset
+//   Release 1: /api/data  /api/sync  /api/login  /api/reset
+//   Release 2: /api/logout  /api/profile  /api/verify  /api/edit-trip  /api/cancel-trip
+//              /api/notifications  /api/mark-read  /api/co2
 // Desarrollo:  php -S localhost:8000 -t backend/public backend/public/index.php
 
 require __DIR__ . '/../src/Config.php';
@@ -55,7 +57,7 @@ set_exception_handler(function (Throwable $e): void {
 });
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-if (!preg_match('#/api/(data|sync|login|reset)/?$#', $path, $m)) {
+if (!preg_match('#/api/(data|sync|login|reset|logout|profile|verify|edit-trip|cancel-trip|notifications|mark-read|co2)/?$#', $path, $m)) {
     fail(404, 'Endpoint no encontrado');
 }
 if ($method !== 'POST') {
@@ -78,4 +80,12 @@ respond(200, match ($m[1]) {
     'sync' => $api->sync($input),
     'login' => $api->login($input),
     'reset' => $api->reset($input),
+    'logout' => $api->logout($input),
+    'profile' => $api->profile($input),
+    'verify' => $api->verify($input),
+    'edit-trip' => $api->editTrip($input),
+    'cancel-trip' => $api->cancelTrip($input),
+    'notifications' => $api->notifications($input),
+    'mark-read' => $api->markRead($input),
+    'co2' => $api->co2($input),
 });

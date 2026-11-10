@@ -5,7 +5,10 @@ export type LatLng = [number, number]
 
 export type Role = 'pasajero' | 'conductor'
 
-export type TripStatus = 'Activo' | 'En curso' | 'Finalizado'
+// US19 · Última ubicación compartida por un participante.
+export interface SharedSpot { p: LatLng, at: number }
+
+export type TripStatus = 'Activo' | 'En curso' | 'Finalizado' | 'Cancelado'
 
 export interface User {
   id: string
@@ -16,6 +19,15 @@ export interface User {
   car?: string           // vehículo y placa (conductores)
   scores: number[]       // calificaciones recibidas (1 a 5)
   completed: number      // viajes completados
+  // Release 2
+  verified?: boolean     // US20 · identidad validada con el correo institucional
+  verifiedAt?: string    // fecha de validación (AAAA-MM-DD)
+  studentCode?: string   // US20 · código universitario (8 dígitos)
+  phone?: string         // US04 · celular (9 dígitos)
+  career?: string        // US04 · carrera
+  bio?: string           // US04 · presentación breve
+  zone?: string          // US04 · US08 · distrito habitual de partida
+  prefTime?: string      // US04 · US08 · hora habitual de viaje (HH:MM)
 }
 
 export interface Trip {
@@ -45,6 +57,11 @@ export interface Trip {
   arrived?: boolean
   started?: number       // Date.now() al iniciar
   ended?: string         // hora de fin (HH:MM)
+  // Release 2
+  shares?: Record<string, SharedSpot>  // US19 · ubicación compartida por cada participante
+  cancelReason?: string  // US12
+  cancelledAt?: string   // US12 · fecha y hora de cancelación
+  editedAt?: string      // US11 · última edición
 }
 
 export interface Message {
@@ -62,11 +79,24 @@ export interface Rating {
   score: number
 }
 
+// US15 · US16 · Avisos para un usuario.
+export type NoticeKind = 'mensaje' | 'viaje'
+export interface Notice {
+  id: string
+  to: string             // destinatario
+  kind: NoticeKind
+  text: string
+  trip?: string
+  at: string             // fecha y hora ISO
+  read: boolean
+}
+
 export interface Db {
   users: User[]
   trips: Trip[]
   messages: Record<string, Message[]>  // por id de viaje
   ratings: Rating[]
+  notices: Notice[]
 }
 
 // Datos del registro mientras se verifica el OTP.

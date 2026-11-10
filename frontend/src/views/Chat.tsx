@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSession } from '../context'
-import { getDb, trip, user, save, passengers, active } from '../store/db'
+import { getDb, trip, user, save, passengers, active, notify, others } from '../store/db'
 import { nowTime } from '../lib/utils'
 import { Empty, Heading, Back } from '../components/ui'
 import type { Message, Trip } from '../types'
@@ -14,16 +14,18 @@ export function Chats() {
   const ts = db.trips.filter(t => canChat(t, current))
   return (
     <>
-      <Heading title="Conversaciones" hu="US13 · US14" sub="Solo viajes activos en los que participas." />
-      {ts.length ? ts.map(t => (
+      <Heading title="Conversaciones" hu="US13 · US14 · US15" sub="Solo viajes activos en los que participas." />
+      {ts.length ? ts.map(t => {
+        const unread = db.notices.filter(n => n.to === current && n.kind === 'mensaje' && n.trip === t.id && !n.read).length
+        return (
         <div key={t.id} className="card top">
           <div>
-            <h3>{t.origin} → {t.dest}</h3>
+            <h3>{t.origin} → {t.dest}{unread > 0 && <span className="badge inline">{unread} nuevo{unread > 1 ? 's' : ''}</span>}</h3>
             <p className="muted">{t.driver === current ? passengers(t).map(id => user(id)?.name).join(', ') || 'Sin pasajeros aún' : user(t.driver)?.name} · {t.time}</p>
           </div>
           <button onClick={() => go('chat', t.id)}>Abrir chat</button>
         </div>
-      )) : <Empty title="No tienes chats habilitados" text="Debes formar parte de un viaje activo." />}
+      )}) : <Empty title="No tienes chats habilitados" text="Debes formar parte de un viaje activo." />}
     </>
   )
 }
@@ -39,6 +41,14 @@ export function Chat() {
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight }, [msgs.length])
 
+  // US15 · Al abrir el chat se marcan como leídos sus avisos de mensajes.
+  const pendingRead = db.notices.some(n => n.to === current && n.kind === 'mensaje' && n.trip === selected && !n.read)
+  useEffect(() => {
+    if (!pendingRead || !canChat(trip(selected), current)) return
+    getDb().notices.forEach(n => { if (n.to === current && n.kind === 'mensaje' && n.trip === selected) n.read = true })
+    save()
+  }, [pendingRead, selected, current])
+
   if (!canChat(t, current)) {
     return <>
       <Back go={go} to="chats" />
@@ -48,7 +58,15 @@ export function Chat() {
   }
 
   const other = t.driver === current ? (passengers(t)[0] ? user(passengers(t)[0]) : null) : user(t.driver)
-  const push = (m: Message) => { (getDb().messages[t.id] ??= []).push(m); save() }
+  // US14 · US15 · Guarda el mensaje y avisa a los demás participantes del viaje.
+  const push = (m: Message) => {
+    const tt = trip(t.id)
+    if (!tt) return
+    ;(getDb().messages[tt.id] ??= []).push(m)
+    const text = m.text.length > 80 ? m.text.slice(0, 77) + '…' : m.text
+    notify(others(tt, m.sender), 'mensaje', (user(m.sender)?.name || 'Alguien') + ' te escribió: “' + text + '”', tt.id)
+    save()
+  }
 
   function send(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()

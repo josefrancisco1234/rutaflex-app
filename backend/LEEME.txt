@@ -20,9 +20,23 @@ Requisitos: PHP 8.1+ con la extensión pdo_pgsql, y PostgreSQL 12+.
 
 API: todos los endpoints son POST con cuerpo JSON.
    POST /api/data    {hash?}      -> datos completos, o {"unchanged":true} si el hash coincide
-   POST /api/sync    {p:{users,trips,messages,ratings}}
+   POST /api/sync    {p:{users,trips,messages,ratings,notices}}
    POST /api/login   {email,pass} -> "id-usuario" o null
    POST /api/reset   {p:{...}}    -> reinicia la demo con los datos enviados
+
+   Release 2 (validan las reglas en el servidor; errores con {"error": "..."} y código 4xx):
+   POST /api/logout         {user}                  -> true                        US03
+   POST /api/profile        {user, p:{name, phone?, career?, bio?, zone?, prefTime?, car?}}  US04
+   POST /api/verify         {user, code}            -> true (código de 8 dígitos)  US20
+   POST /api/edit-trip      {trip, driver, p:{origin?, dest?, time?, seats?, price?, changes?}}  US11
+   POST /api/cancel-trip    {trip, driver, reason}  -> true                        US12
+   POST /api/notifications  {user}                  -> últimos 100 avisos          US15 · US16
+   POST /api/mark-read      {user}                  -> cantidad marcada            US15 · US16
+   POST /api/co2            {user}                  -> kg de CO2 evitados          US23
+
+Actualizar una base del Release 1: basta con volver a ejecutar
+   psql -d rutaflex -f backend/schema.sql
+(agrega las columnas verificado/extra, el estado Cancelado y la tabla notificaciones sin borrar datos).
 
 En producción con Apache se usa backend/public como raíz (el .htaccess redirige a index.php)
 y el frontend (npm run build) se sirve desde el mismo dominio bajo la ruta que corresponda.

@@ -6,6 +6,7 @@ export type ViewKey =
   | 'home' | 'mytrips' | 'detail'
   | 'dhome' | 'publish' | 'trip'
   | 'chats' | 'chat' | 'history' | 'savings' | 'earnings' | 'profile'
+  | 'edittrip' | 'notices' | 'impact'
 
 // Resumen que muestra EndTripModal al terminar un viaje.
 export interface EndSummary {
@@ -19,6 +20,7 @@ export interface EndSummary {
 export type Modal =
   | { type: 'rating'; tripId: string; target: string }
   | ({ type: 'end' } & EndSummary)
+  | { type: 'cancel'; tripId: string }
 
 export interface AppContextValue {
   db: Db
@@ -45,6 +47,8 @@ export interface AppContextValue {
   setModal: (m: Modal | null) => void
   closeModal: () => void
   homeView: ViewKey
+  unread: number               // US15 · US16 · avisos sin leer
+  markAllRead: () => void
 }
 
 // Estado de sesión y navegación compartido por todas las vistas (lo provee App.tsx).

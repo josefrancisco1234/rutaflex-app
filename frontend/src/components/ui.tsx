@@ -51,7 +51,8 @@ export function RoleBadge({ role }: { role: Role }) {
 
 export function StatusPill({ t }: { t: Trip }) {
   const style = t.status === 'En curso' ? { background: '#fff3dc', color: '#8a5a00' }
-    : t.status === 'Finalizado' ? { background: '#eef1f3', color: '#607783' } : undefined
+    : t.status === 'Finalizado' ? { background: '#eef1f3', color: '#607783' }
+      : t.status === 'Cancelado' ? { background: '#fff0ef', color: '#9d2929' } : undefined
   return <span className="pill" style={style}>{t.status} · {t.time}</span>
 }
 

@@ -27,3 +27,39 @@ button.finish:disabled{background:#c9b3b0}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .btnrow button{flex:1}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr 1fr}.leaf{height:330px}.rolepick{grid-template-columns:1fr}}
+
+/* ---------- Release 2 ---------- */
+textarea{width:100%;padding:12px 14px;border:1px solid #ccdadd;border-radius:11px;background:white;color:var(--ink);font:inherit;resize:vertical}
+textarea.invalid{border-color:#b83131}
+input:disabled{background:var(--bg);color:var(--muted)}
+.verified{color:var(--green);font-weight:800}
+.muted-pill{background:#eef1f3;color:var(--muted)}
+button.bell{position:relative;background:white;border:1px solid var(--line);color:var(--ink);padding:6px 10px;font-size:16px}
+button.bell.active{background:var(--mint)}
+.badge{position:absolute;top:-6px;right:-6px;background:#c0392b;color:white;border-radius:20px;font-size:11px;min-width:18px;height:18px;line-height:18px;padding:0 5px;text-align:center;font-weight:750}
+.badge.inline{position:static;display:inline-block;margin-left:8px;vertical-align:middle}
+.noticelist{padding:8px}
+.notice{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:transparent;color:var(--ink);font-weight:400;border-radius:12px;padding:12px}
+.notice:hover{background:var(--bg);filter:none}
+.notice.unread{background:var(--mint)}
+.notice .nicon{font-size:20px}
+.notice .nbody{display:flex;flex-direction:column;gap:2px}
+.notice.unread .nbody span{font-weight:650}
+.recs{margin-bottom:22px}
+.reclist{display:grid;gap:10px;margin-top:6px}
+.rec{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;flex-wrap:wrap}
+.why{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#006950}
+.why span{background:var(--mint);border-radius:20px;padding:2px 9px}
+.filters{margin-bottom:22px}
+.fgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:10px}
+.fgrid .field{margin-bottom:6px}
+.detail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 0;border-top:1px solid var(--line);padding-top:16px}
+.detail div{background:var(--bg);border-radius:12px;padding:10px 12px}
+.detail dt{font-size:12px;color:var(--muted)}
+.detail dd{margin:0;font-weight:650;overflow-wrap:anywhere}
+.sharebox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:14px}
+.personpin{font-size:22px;line-height:1;filter:drop-shadow(0 2px 3px #0005)}
+.personpin.me{filter:drop-shadow(0 0 4px #008b72)}
+button.danger{background:#c0392b}
+button.dangertext{color:#a52a20}
+@media(max-width:850px){.fgrid{grid-template-columns:1fr 1fr}.fgrid .field:first-child{grid-column:1/-1}.detail{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr 1fr}}

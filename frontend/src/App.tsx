@@ -2,19 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import { AppCtx } from './context'
 import type { AppContextValue, Modal, ViewKey } from './context'
-import { useDb, user, trip, passengers } from './store/db'
-import { useCloudStatus } from './store/cloud'
+import { useDb, user, trip, passengers, getDb, save } from './store/db'
+import { useCloudStatus, apiLogout, apiMarkRead } from './store/cloud'
 import type { CloudStatus } from './store/cloud'
 import { firstName } from './lib/utils'
 import { RoleBadge } from './components/ui'
 import DemoLab from './components/DemoLab'
-import { RatingModal, EndTripModal } from './components/Modals'
+import { RatingModal, EndTripModal, CancelTripModal } from './components/Modals'
 import { Login, Register, Otp } from './views/Auth'
 import { Home, MyTrips, Detail } from './views/Passenger'
-import { DriverHome, Publish } from './views/Driver'
+import { DriverHome, Publish, EditTrip } from './views/Driver'
 import TripView from './views/TripView'
 import { Chats, Chat } from './views/Chat'
-import { History, Savings, Earnings, ProfileView } from './views/Account'
+import { History, Savings, Earnings, ProfileView, Impact } from './views/Account'
+import Notices from './views/Notices'
 import Guide from './views/Guide'
 import type { PendingUser } from './types'
 
@@ -23,10 +24,11 @@ const VIEWS: Record<ViewKey, ComponentType> = {
   home: Home, mytrips: MyTrips, detail: Detail,
   dhome: DriverHome, publish: Publish, trip: TripView,
   chats: Chats, chat: Chat, history: History, savings: Savings, earnings: Earnings, profile: ProfileView,
+  edittrip: EditTrip, notices: Notices, impact: Impact,
 }
-const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
-const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
-const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings']
+const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['impact', 'CO₂'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
+const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['impact', 'CO₂'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
+const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings', 'edittrip']
 const PASSENGER_ONLY: ViewKey[] = ['home', 'mytrips', 'savings', 'detail']
 const PUBLIC: ViewKey[] = ['login', 'register', 'otp', 'guide']
 const STATUS_TEXT: Record<CloudStatus, string> = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Servidor en línea', error: '⚠️ Sin servidor · modo local' }
@@ -88,8 +90,43 @@ export default function App() {
   }
 
   function login(id: string) { setCurrent(id); go(homeFor(id)) }
-  function logout() { setCurrent(null); go('login'); toast('Sesión cerrada. Elige otro perfil.') }
   function resetSession() { setPending(null); setQuery(''); setSearched(false); setModal(null) }
+  // US03 · Cerrar sesión: borra la sesión del navegador y bloquea las pantallas protegidas.
+  function logout() {
+    if (current) apiLogout(current)
+    setCurrent(null)
+    resetSession()
+    setSelected('t1')
+    go('login')
+    toast('Sesión cerrada. Inicia sesión para volver a entrar.')
+  }
+
+  // US15 · US16 · Avisa (toast y notificación del navegador) cuando llega un aviso nuevo.
+  const mine = current ? db.notices.filter(n => n.to === current) : []
+  const unread = mine.filter(n => !n.read).length
+  const seen = useRef<{ user: string, ids: Set<string> } | null>(null)
+  useEffect(() => {
+    if (!current) { seen.current = null; return }
+    const ids = db.notices.filter(n => n.to === current).map(n => n.id)
+    // Al entrar no se muestran como nuevos los avisos que ya existían (se ven en la campana).
+    if (seen.current?.user !== current) { seen.current = { user: current, ids: new Set(ids) }; return }
+    const known = seen.current.ids
+    const fresh = db.notices.filter(n => n.to === current && !n.read && !known.has(n.id))
+    ids.forEach(id => known.add(id))
+    const n = fresh[fresh.length - 1]
+    if (!n) return
+    // No interrumpir si ya se está leyendo ese chat.
+    if (n.kind === 'mensaje' && view === 'chat' && selected === n.trip) return
+    toast((n.kind === 'mensaje' ? '💬 ' : '🚗 ') + n.text)
+    try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification('RutaFlex', { body: n.text }) } catch {}
+  }, [db, db.notices.length, current, view, selected, toast]) // db se muta en el sitio: el largo detecta avisos nuevos
+
+  function markAllRead() {
+    if (!current) return
+    let changed = false
+    getDb().notices.forEach(n => { if (n.to === current && !n.read) { n.read = true; changed = true } })
+    if (changed) { save(); apiMarkRead(current) }
+  }
 
   // Reglas de acceso por rol.
   let v: ViewKey = VIEWS[view] ? view : 'login'
@@ -102,6 +139,7 @@ export default function App() {
     db, current, me, isDriver, view: v, selected, go, toast, rate, login, logout, setCurrent, resetSession,
     query, setQuery, searched, setSearched, pending, setPending, otpExpired, setOtpExpired,
     setModal, closeModal, homeView: me && current ? homeFor(current) : 'login',
+    unread, markAllRead,
   }
 
   return (
@@ -119,8 +157,11 @@ export default function App() {
           <span className="pill" title="Estado del backend">{STATUS_TEXT[cloud]}</span>
           {me && <>
             <RoleBadge role={me.role} />
-            <small>{firstName(me.name)}</small>
-            <button className="secondary" onClick={logout}>Cambiar perfil</button>
+            <small>{firstName(me.name)}{me.verified && <span className="verified" title="Identidad verificada"> ✔</span>}</small>
+            <button className={'bell' + (v === 'notices' ? ' active' : '')} aria-label={'Notificaciones' + (unread ? ': ' + unread + ' sin leer' : '')} onClick={() => go('notices')}>
+              🔔{unread > 0 && <span className="badge">{unread > 9 ? '9+' : unread}</span>}
+            </button>
+            <button className="secondary" onClick={logout}>Cerrar sesión</button>
           </>}
         </div>
       </header>
@@ -130,6 +171,7 @@ export default function App() {
       </main>
       {modal?.type === 'rating' && <RatingModal tripId={modal.tripId} target={modal.target} />}
       {modal?.type === 'end' && <EndTripModal {...modal} />}
+      {modal?.type === 'cancel' && <CancelTripModal tripId={modal.tripId} />}
       <div className={toastText ? 'toast' : ''} role="status" aria-live="polite">{toastText}</div>
     </AppCtx.Provider>
   )
