@@ -87,7 +87,7 @@ final class Api
         $st = $this->db->prepare(
             'SELECT u.id, c.pass_hash FROM usuarios u JOIN credenciales c ON c.usuario_id = u.id WHERE u.email = :email LIMIT 1'
         );
-        $st->execute(['email' => mb_strtolower(trim($email))]);
+        $st->execute(['email' => self::email($email)]);
         $row = $st->fetch();
         // Si el usuario no existe se verifica igual contra un hash para no delatar si el correo existe por tiempo de respuesta.
         $ok = password_verify($pass, $row['pass_hash'] ?? password_hash($pass, PASSWORD_BCRYPT));
@@ -196,7 +196,7 @@ final class Api
                 'id' => $id,
                 'rol' => $role,
                 'nombre' => $this->str($u, 'name'),
-                'email' => mb_strtolower(trim($this->str($u, 'email'))),
+                'email' => self::email($this->str($u, 'email')),
                 'vehiculo' => $this->optStr($u, 'car'),
                 'scores' => json_encode(array_map('intval', $scores), JSON_THROW_ON_ERROR),
                 'completed' => (int) ($u['completed'] ?? 0),
@@ -292,6 +292,13 @@ final class Api
                 'score' => $this->int($r, 'score'),
             ]);
         }
+    }
+
+    /** Correo normalizado (minúsculas, sin espacios); igual en registro y en login. */
+    private static function email(string $e): string
+    {
+        $e = trim($e);
+        return function_exists('mb_strtolower') ? mb_strtolower($e) : strtolower($e);
     }
 
     // ---------- validación de campos ----------
