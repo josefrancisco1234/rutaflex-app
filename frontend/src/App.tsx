@@ -6,6 +6,7 @@ import { useDb, user, trip, passengers, getDb, save } from './store/db'
 import { useCloudStatus, apiLogout, apiMarkRead } from './store/cloud'
 import type { CloudStatus } from './store/cloud'
 import { firstName } from './lib/utils'
+import { demoMode } from './lib/api'
 import { RoleBadge } from './components/ui'
 import DemoLab from './components/DemoLab'
 import { RatingModal, EndTripModal, CancelTripModal } from './components/Modals'
@@ -26,8 +27,8 @@ const VIEWS: Record<ViewKey, ComponentType> = {
   chats: Chats, chat: Chat, history: History, savings: Savings, earnings: Earnings, profile: ProfileView,
   edittrip: EditTrip, notices: Notices, impact: Impact,
 }
-const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['impact', 'CO₂'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
-const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['impact', 'CO₂'], ['profile', 'Perfil'], ['guide', 'Evidencia']]
+const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['impact', 'CO₂'], ['profile', 'Perfil'], ...(demoMode ? [['guide', 'Evidencia'] as [ViewKey, string]] : [])]
+const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['impact', 'CO₂'], ['profile', 'Perfil'], ...(demoMode ? [['guide', 'Evidencia'] as [ViewKey, string]] : [])]
 const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings', 'edittrip']
 const PASSENGER_ONLY: ViewKey[] = ['home', 'mytrips', 'savings', 'detail']
 const PUBLIC: ViewKey[] = ['login', 'register', 'otp', 'guide']
@@ -151,7 +152,7 @@ export default function App() {
             ? (isDriver ? NAV_C : NAV_P).map(([key, label]) => (
               <button key={key} className={v === key ? 'active' : ''} onClick={() => go(key)}>{label}</button>
             ))
-            : <button onClick={() => go('guide')}>Guía y trazabilidad</button>}
+            : demoMode && <button onClick={() => go('guide')}>Guía y trazabilidad</button>}
         </nav>
         <div className="headright">
           <span className="pill" title="Estado del backend">{STATUS_TEXT[cloud]}</span>
@@ -167,7 +168,7 @@ export default function App() {
       </header>
       <main>
         <View key={v + ':' + selected} />
-        <DemoLab />
+        {demoMode && <DemoLab />}
       </main>
       {modal?.type === 'rating' && <RatingModal tripId={modal.tripId} target={modal.target} />}
       {modal?.type === 'end' && <EndTripModal {...modal} />}

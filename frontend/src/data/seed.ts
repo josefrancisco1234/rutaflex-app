@@ -1,6 +1,8 @@
 import type { Db, LatLng } from '../types'
+import { demoMode } from '../lib/api'
 
-// Datos mock iniciales (ficticios). También se usan para cargar la base de datos al reiniciar la demo.
+// Datos mock (ficticios) del modo exposición. También se usan para cargar la base de datos al reiniciar la demo.
+// Fuera del modo exposición la app arranca vacía (ver initial()).
 export const ULIMA: LatLng = [-12.0848, -76.9712]
 
 export const seed = (): Db => ({
@@ -32,3 +34,7 @@ export const seed = (): Db => ({
     { id: 'n1', to: 'g', kind: 'mensaje', text: 'Andrea Salazar te escribió: “¡Hola, Gabriel! Nos encontramos en el punto de partida.”', trip: 't1', at: '2026-10-20T06:50:00', read: false },
   ],
 })
+
+export const empty = (): Db => ({ users: [], trips: [], messages: {}, ratings: [], notices: [] })
+// Datos con los que arranca la app cuando no hay nada guardado.
+export const initial = (): Db => demoMode ? seed() : empty()

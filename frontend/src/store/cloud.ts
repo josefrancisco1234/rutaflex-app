@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { apiUrl, cloudConfigured } from '../lib/api'
+import { apiUrl, cloudConfigured, demoMode } from '../lib/api'
 import { getDb, replaceDb, onSave, setTabSync } from './db'
 import { seed } from '../data/seed'
 import type { Db, Message, Notice, NoticeKind, Rating, Role, Trip, TripStatus, User } from '../types'
@@ -168,7 +168,7 @@ async function fetchSnapshot(useHash: boolean): Promise<Snapshot | null> {
   return data
 }
 function toDb(s: Snapshot) {
-  if (!s.usuarios.length) return null
+  if (demoMode && !s.usuarios.length) return null   // modo exposición: base vacía → se carga la demo
   const db: Db = { users: s.usuarios.map(fromUser), trips: s.viajes.map(fromTrip), messages: {}, ratings: s.calificaciones.map(fromRate), notices: (s.notificaciones || []).map(fromNotice) }
   s.mensajes.forEach(row => (db.messages[row.viaje_id] ??= []).push(fromMsg(row)))
   return db
@@ -256,6 +256,7 @@ export async function initCloud() {
 }
 
 export async function resetCloud() {
+  if (!demoMode) throw new Error('Reiniciar solo está disponible en modo exposición')
   const s = seed()
   const { error } = await post('reset', { p: group(entries(s)) })
   if (error) throw error

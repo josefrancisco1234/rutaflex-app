@@ -1,5 +1,6 @@
 import { RoleBadge, Reputation } from './ui'
 import type { User } from '../types'
+import { demoMode } from '../lib/api'
 
 export default function Profile({ u }: { u: User }) {
   return (
@@ -8,7 +9,7 @@ export default function Profile({ u }: { u: User }) {
         <span className="avatar">{u.name[0]}</span>
         <div>
           <h2>{u.name} {u.verified && <span className="verified" title="Identidad verificada con correo institucional">✔</span>}</h2>
-          <p className="muted">Universidad de Lima{u.career ? ' · ' + u.career : ''} · usuario ficticio</p>
+          <p className="muted">Universidad de Lima{u.career ? ' · ' + u.career : ''}{demoMode ? ' · usuario ficticio' : ''}</p>
         </div>
       </div>
       <div className="row" style={{ margin: '14px 0' }}>

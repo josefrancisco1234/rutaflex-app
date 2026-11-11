@@ -10,6 +10,7 @@ import { ZONE_NAMES } from '../lib/zones'
 import { Empty, Heading, Field, StatusPill } from '../components/ui'
 import Profile from '../components/Profile'
 import type { Db, Trip } from '../types'
+import { demoMode } from '../lib/api'
 
 const historyTrips = (db: Db, current: string) => db.trips.filter(t => t.status === 'Finalizado' && t.members.includes(current))
 
@@ -144,7 +145,7 @@ export function Savings() {
   const total = ts.reduce((a, t) => a + saving(t), 0)
   return (
     <>
-      <Heading title="Cada viaje cuenta" hu="US22" sub="Ahorro económico estimado con datos ficticios." />
+      <Heading title="Cada viaje cuenta" hu="US22" sub={demoMode ? 'Ahorro económico estimado con datos ficticios.' : 'Ahorro económico estimado.'} />
       {ts.length ? (
         <div className="split">
           <div className="card">
@@ -178,7 +179,7 @@ export function Earnings() {
   const total = ts.reduce((a, t) => a + income(t), 0)
   return (
     <>
-      <Heading title="Tus ganancias" hu="Conductor" sub="Ingresos estimados por asientos compartidos (datos ficticios)." />
+      <Heading title="Tus ganancias" hu="Conductor" sub={demoMode ? 'Ingresos estimados por asientos compartidos (datos ficticios).' : 'Ingresos estimados por asientos compartidos.'} />
       {ts.length ? (
         <div className="split">
           <div className="card">

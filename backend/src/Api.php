@@ -101,6 +101,10 @@ final class Api
     // ------------------------------------------------------------------
     public function reset(array $in): string
     {
+        // Solo en modo exposición: en producción borraría todos los datos reales.
+        if (Config::get('DEMO_MODE') !== 'true') {
+            throw new HttpError(403, 'Reiniciar solo está disponible en modo exposición');
+        }
         $p = $this->payload($in);
         $this->transaction(function () use ($p) {
             foreach (['notificaciones', 'calificaciones', 'mensajes', 'viajes', 'credenciales', 'usuarios'] as $table) {

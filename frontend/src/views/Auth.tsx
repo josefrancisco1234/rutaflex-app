@@ -4,6 +4,7 @@ import { useApp } from '../context'
 import { getDb, save } from '../store/db'
 import { cloudReady, cloudLogin } from '../store/cloud'
 import { institutional, showErrors } from '../lib/utils'
+import { demoMode } from '../lib/api'
 import type { FormErrors } from '../lib/utils'
 import { Field } from '../components/ui'
 import type { Role } from '../types'
@@ -18,7 +19,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
         <div className="note">
           <strong>Dos perfiles, un mismo trayecto.</strong>
           <p className="muted">Pasajero: busca, reserva y sigue el viaje en el mapa.<br />Conductor: publica, inicia y termina el viaje al llegar.</p>
-          <small>Prototipo académico. Todos los usuarios y viajes son ficticios.</small>
+          {demoMode && <small>Prototipo académico. Todos los usuarios y viajes son ficticios.</small>}
         </div>
       </div>
       <div className="card authform">{children}</div>
@@ -63,13 +64,13 @@ export function Login() {
         <button className="full" disabled={busy}>{busy ? 'Verificando…' : 'Iniciar sesión'}</button>
       </form>
       <button className="link full" onClick={() => go('register')}>¿Primera vez? Regístrate</button>
-      <div className="alert">
+      {demoMode && <div className="alert">
         <strong>Perfiles ficticios de exposición</strong> · contraseña: RutaFlex1!
         <div className="rolepick">
           <button className="secondary" onClick={() => login('g')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
           <button className="secondary" onClick={() => login('a')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
         </div>
-      </div>
+      </div>}
     </AuthLayout>
   )
 }

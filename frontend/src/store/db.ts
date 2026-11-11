@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { seed } from '../data/seed'
+import { initial } from '../data/seed'
 import type { Db, Notice, Trip } from '../types'
 
 // Estado de datos de la app: un objeto `db` que se muta y luego se confirma con save().
@@ -7,7 +7,7 @@ import type { Db, Notice, Trip } from '../types'
 export const KEY = 'rutaflex-r2'
 
 function load(): Db {
-  try { return fix(JSON.parse(localStorage.getItem(KEY) ?? 'null') || seed()) } catch { return seed() }
+  try { return fix(JSON.parse(localStorage.getItem(KEY) ?? 'null') || initial()) } catch { return initial() }
 }
 // Datos guardados por versiones anteriores pueden no traer todas las colecciones.
 export function fix(d: Db): Db { d.messages ??= {}; d.ratings ??= []; d.notices ??= []; return d }
