@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSession } from '../context'
 import { getDb, save, active, trip, passengers, notify } from '../store/db'
@@ -54,8 +54,16 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
   const [dest, setDest] = useState<LatLng>(initial?.d ?? ULIMA)
   const [busy, setBusy] = useState(false)
 
+  const formRef = useRef<HTMLFormElement>(null)
+
   function onPick(kind: 'o' | 'd', p: LatLng) {
     if (kind === 'o') { setOrigin(p); setErr(e => ({ ...e, map: '' })) } else setDest(p)
+  }
+  // Dirección del punto elegido en el mapa (búsqueda, clic o pin arrastrado): completa el campo del formulario.
+  function onAddress(kind: 'o' | 'd', text: string) {
+    const input = formRef.current?.elements.namedItem(kind === 'o' ? 'origin' : 'dest')
+    if (input instanceof HTMLInputElement) input.value = text
+    setErr(e => ({ ...e, [kind === 'o' ? 'origin' : 'dest']: '' }))
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -71,7 +79,7 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
     if (!Number.isInteger(seats) || seats < minSeats) er.seats = minSeats === 0 ? 'Ingresa un número entero de asientos (0 o más).' : 'Ingresa un número entero positivo de asientos.'
     else if (seats > 6) er.seats = 'Máximo 6 asientos libres por vehículo.'
     if (p !== '' && Number(p) < 0) er.price = 'El precio no puede ser negativo.'
-    if (!origin) er.map = 'Haz clic en el mapa para marcar el punto de partida.'
+    if (!origin) er.map = 'Busca la dirección o haz clic en el mapa para marcar el punto de partida.'
     if (showErrors(er, setErr) || !origin) return
     setBusy(true)
     await onSubmit({ origin: o, dest: d, time, seats, price: p === '' ? null : Number(p), stops, o: origin, d: dest || ULIMA })
@@ -80,7 +88,7 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
 
   return (
     <div className="card form" style={{ maxWidth: 820 }}>
-      <form onSubmit={submit} noValidate>
+      <form ref={formRef} onSubmit={submit} noValidate>
         <div className="grid">
           <Field id="origin" label="Punto de partida *" defaultValue={initial?.origin ?? ''} error={err.origin} />
           <Field id="dest" label="Destino *" defaultValue={initial?.dest ?? 'Universidad de Lima'} error={err.dest} />
@@ -96,9 +104,9 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
           <button type="button" className={mode === 'origin' ? '' : 'secondary'} onClick={() => setMode('origin')}>📍 Marcar partida</button>
           <button type="button" className={mode === 'dest' ? '' : 'secondary'} onClick={() => setMode('dest')}>🎓 Mover destino</button>
         </div>
-        <PickMap mode={mode} onMode={setMode} onPick={onPick} origin={initial?.o} dest={initial?.d} />
+        <PickMap mode={mode} onMode={setMode} onPick={onPick} onAddress={onAddress} origin={initial?.o} dest={initial?.d} />
         <div className="error">{err.map || ''}</div>
-        <p className="muted">Haz clic en el mapa para marcar el punto de partida. El destino viene marcado en la Universidad de Lima; puedes moverlo.</p>
+        <p className="muted">Busca una dirección, haz clic en el mapa o usa 📍 mi ubicación para marcar la partida. Puedes arrastrar los pines para ajustarlos; la dirección se completa sola. El destino viene marcado en la Universidad de Lima.</p>
         <button className="full" disabled={busy}>{busy ? 'Guardando…' : submitLabel}</button>
       </form>
     </div>
