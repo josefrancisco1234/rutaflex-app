@@ -44,9 +44,9 @@ export function Reputation({ u }: { u: User }) {
 }
 
 export function RoleBadge({ role }: { role: Role }) {
-  return role === 'conductor'
-    ? <span className="rolebadge conductor">🚗 Conductor</span>
-    : <span className="rolebadge pasajero">🎒 Pasajero</span>
+  return role === 'conductor' ? <span className="rolebadge conductor">🚗 Conductor</span>
+    : role === 'admin' ? <span className="rolebadge admin">🛡️ Administrador</span>
+      : <span className="rolebadge pasajero">🎒 Pasajero</span>
 }
 
 export function StatusPill({ t }: { t: Trip }) {

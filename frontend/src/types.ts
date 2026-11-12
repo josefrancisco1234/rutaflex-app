@@ -3,7 +3,18 @@
 // Coordenada [latitud, longitud].
 export type LatLng = [number, number]
 
-export type Role = 'pasajero' | 'conductor'
+// El rol admin no se puede elegir al registrarse (se crea con backend/bin/crear-admin.php).
+export type Role = 'pasajero' | 'conductor' | 'admin'
+
+// Solicitud de conductor: la revisa un administrador.
+export type DriverStatus = 'pendiente' | 'aprobado' | 'rechazado'
+export interface DriverApplication {
+  model: string          // marca, modelo y color
+  plate: string          // placa ABC-123
+  license: string        // licencia de conducir (letra + 8 dígitos)
+  soat: string           // vencimiento del SOAT (AAAA-MM-DD)
+  submittedAt: string    // fecha de envío (AAAA-MM-DD)
+}
 
 // US19 · Última ubicación compartida por un participante.
 export interface SharedSpot { p: LatLng, at: number }
@@ -28,6 +39,15 @@ export interface User {
   bio?: string           // US04 · presentación breve
   zone?: string          // US04 · US08 · distrito habitual de partida
   prefTime?: string      // US04 · US08 · hora habitual de viaje (HH:MM)
+  // Administración (solo los cambia un admin)
+  driverStatus?: DriverStatus       // conductores: estado de su solicitud
+  rejectReason?: string             // motivo del rechazo
+  application?: DriverApplication   // datos del formulario de conductor
+  reviewedAt?: string               // fecha y hora de la revisión
+  reviewedBy?: string               // id del admin que revisó
+  banned?: boolean                  // cuenta suspendida
+  banReason?: string
+  createdAt?: string                // fecha de registro (la pone el servidor)
 }
 
 export interface Trip {
@@ -80,7 +100,7 @@ export interface Rating {
 }
 
 // US15 · US16 · Avisos para un usuario.
-export type NoticeKind = 'mensaje' | 'viaje'
+export type NoticeKind = 'mensaje' | 'viaje' | 'cuenta'
 export interface Notice {
   id: string
   to: string             // destinatario
@@ -100,4 +120,4 @@ export interface Db {
 }
 
 // Datos del registro mientras se verifica el OTP.
-export type PendingUser = Pick<User, 'name' | 'email' | 'role' | 'car'> & { pass: string }
+export type PendingUser = Pick<User, 'name' | 'email' | 'role' | 'car' | 'phone' | 'application'> & { pass: string }

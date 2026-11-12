@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { apiUrl, cloudConfigured, demoMode } from '../lib/api'
 import { getDb, replaceDb, onSave, setTabSync } from './db'
 import { seed } from '../data/seed'
-import type { Db, Message, Notice, NoticeKind, Rating, Role, Trip, TripStatus, User } from '../types'
+import type { Db, DriverStatus, Message, Notice, NoticeKind, Rating, Role, Trip, TripStatus, User } from '../types'
 
 // ---------- estado de conexión ----------
 export type CloudStatus = 'local' | 'connecting' | 'online' | 'error'
@@ -32,7 +32,10 @@ async function post<T = null>(endpoint: string, body: object): Promise<{ data: T
 }
 
 // ---------- filas de la base de datos (columnas de backend/schema.sql) ----------
-type UserRow = { id: string, rol: Role, nombre: string, email: string, vehiculo: string | null, puntuaciones: number[] | null, viajes_completados: number | null, verificado: boolean | null, extra: Partial<User> | null }
+type UserRow = {
+  id: string, rol: Role, nombre: string, email: string, vehiculo: string | null, puntuaciones: number[] | null, viajes_completados: number | null, verificado: boolean | null, extra: Partial<User> | null,
+  estado_conductor: DriverStatus | null, motivo_rechazo: string | null, baneado: boolean | null, motivo_baneo: string | null, creado_en: string | null
+}
 type TripRow = {
   id: string, conductor_id: string, origen: string, destino: string, hora: string, asientos: number, precio: number | null,
   estado: TripStatus, miembros: string[] | null, paradas: string[] | null, taxi: number | null, fecha: string | null, extra: Partial<Trip> | null
@@ -43,7 +46,8 @@ type NoticeRow = { id: string, usuario_id: string, tipo: NoticeKind, texto: stri
 
 // ---------- conversión app ⇄ filas de la base de datos ----------
 const TRIP_COLS: string[] = ['id', 'driver', 'origin', 'dest', 'time', 'seats', 'price', 'status', 'members', 'stops', 'taxi', 'date']
-const USER_COLS: string[] = ['id', 'role', 'name', 'email', 'pass', 'car', 'scores', 'completed', 'verified']
+// driverStatus, rejectReason, banned y banReason son columnas propias; createdAt la pone el servidor.
+const USER_COLS: string[] = ['id', 'role', 'name', 'email', 'pass', 'car', 'scores', 'completed', 'verified', 'driverStatus', 'rejectReason', 'banned', 'banReason', 'createdAt']
 const uid = (p: string) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 
 // JSON con claves ordenadas: permite comparar lo local con lo que llega de la base.
@@ -59,7 +63,11 @@ function stable(v: unknown): string {
 const userP = (u: User) => {
   const extra: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(u)) if (!USER_COLS.includes(k) && v !== undefined) extra[k] = v
-  return { id: u.id, role: u.role, name: u.name, email: u.email, car: u.car ?? null, scores: u.scores || [], completed: u.completed || 0, verified: !!u.verified, extra }
+  return {
+    id: u.id, role: u.role, name: u.name, email: u.email, car: u.car ?? null, scores: u.scores || [], completed: u.completed || 0, verified: !!u.verified, extra,
+    // El servidor solo acepta estos campos al reiniciar la demo; desde /sync los cambia únicamente un admin.
+    driverStatus: u.driverStatus ?? null, rejectReason: u.rejectReason ?? null, banned: !!u.banned, banReason: u.banReason ?? null,
+  }
 }
 const tripP = (t: Trip) => {
   const extra: Record<string, unknown> = {}
@@ -74,6 +82,11 @@ const fromUser = (r: UserRow) => {
   const u: User = { ...(r.extra || {}), id: r.id, role: r.rol, name: r.nombre, email: r.email, scores: r.puntuaciones || [], completed: r.viajes_completados || 0 }
   if (r.vehiculo != null) u.car = r.vehiculo
   if (r.verificado) u.verified = true
+  if (r.estado_conductor) u.driverStatus = r.estado_conductor
+  if (r.motivo_rechazo) u.rejectReason = r.motivo_rechazo
+  if (r.baneado) u.banned = true
+  if (r.motivo_baneo) u.banReason = r.motivo_baneo
+  if (r.creado_en) u.createdAt = r.creado_en
   return u
 }
 const fromTrip = (r: TripRow) => {
@@ -237,6 +250,9 @@ async function poll() {
   finally { polling = false }
 }
 
+// Pide los datos al servidor de inmediato (tras una acción de admin, sin esperar al próximo sondeo).
+export const refreshCloud = () => poll()
+
 // ---------- API pública ----------
 export async function initCloud() {
   if (!cloudConfigured) return
@@ -290,3 +306,9 @@ export const apiVerifyIdentity = (userId: string, code: string) => api('verify',
 export const apiEditTrip = (tripId: string, driverId: string, p: object) => api('edit-trip', { trip: tripId, driver: driverId, p })
 export const apiCancelTrip = (tripId: string, driverId: string, reason: string) => api('cancel-trip', { trip: tripId, driver: driverId, reason })
 export const apiMarkRead = (userId: string) => api('mark-read', { user: userId })
+
+// ---------- Administración ----------
+export const apiDriverApply = (userId: string, p: object) => api('driver-apply', { user: userId, p })
+export const apiAdminReview = (adminId: string, userId: string, approve: boolean, reason?: string) => api('admin-review', { admin: adminId, user: userId, approve, reason })
+export const apiAdminBan = (adminId: string, userId: string, ban: boolean, reason?: string) => api('admin-ban', { admin: adminId, user: userId, ban, reason })
+export const apiAdminDelete = (adminId: string, userId: string) => api('admin-delete', { admin: adminId, user: userId })

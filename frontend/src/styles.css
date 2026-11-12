@@ -63,3 +63,24 @@ button.bell.active{background:var(--mint)}
 button.danger{background:#c0392b}
 button.dangertext{color:#a52a20}
 @media(max-width:850px){.fgrid{grid-template-columns:1fr 1fr}.fgrid .field:first-child{grid-column:1/-1}.detail{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr 1fr}}
+
+/* ---------- Administración ---------- */
+.rolebadge.admin{background:#ece8fb;color:#4b3a8f}
+.pill.state{background:var(--mint);color:#006950;white-space:nowrap}
+.pill.state.warn{background:#fff3dc;color:#8a5a00}
+.pill.state.bad{background:#fff0ef;color:#9d2929}
+.adminstats{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:18px}
+.adminstats button{display:block;text-align:left;font-weight:400;border-radius:12px;padding:10px 12px;min-height:0;background:var(--bg);border:1px solid transparent;color:var(--ink)}
+.adminstats button.attention{background:#fff3dc;border-color:#f0d49a}
+.admintable td{vertical-align:middle}
+.admintable .actions{gap:6px;flex-wrap:nowrap}
+.admintable .actions button{padding:7px 12px;min-height:34px;font-size:13px}
+.reqlist{display:grid;gap:16px}
+.detail dd.bad{color:#9d2929}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.chips button{padding:6px 10px;min-height:0;font-size:12px;font-weight:500;border-radius:20px}
+.driverform{border:1px solid var(--line);border-radius:14px;padding:14px 16px 2px;margin:0 0 18px}
+.driverform legend{font-weight:700;font-size:14px;padding:0 6px}
+.driverform .grid{gap:0 14px}
+.steps{padding-left:20px;margin:0}.steps li{margin-bottom:8px}
+@media(max-width:850px){.adminstats{grid-template-columns:1fr 1fr}.admintable .actions{flex-wrap:wrap}}

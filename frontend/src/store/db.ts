@@ -10,7 +10,12 @@ function load(): Db {
   try { return fix(JSON.parse(localStorage.getItem(KEY) ?? 'null') || initial()) } catch { return initial() }
 }
 // Datos guardados por versiones anteriores pueden no traer todas las colecciones.
-export function fix(d: Db): Db { d.messages ??= {}; d.ratings ??= []; d.notices ??= []; return d }
+// Conductores guardados antes de la revisión por un admin: se consideran aprobados (igual que en schema.sql).
+export function fix(d: Db): Db {
+  d.messages ??= {}; d.ratings ??= []; d.notices ??= []
+  d.users.forEach(u => { if (u.role === 'conductor' && !u.driverStatus) u.driverStatus = 'aprobado' })
+  return d
+}
 
 let db = load()
 let version = 0

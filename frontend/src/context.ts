@@ -7,6 +7,7 @@ export type ViewKey =
   | 'dhome' | 'publish' | 'trip'
   | 'chats' | 'chat' | 'history' | 'savings' | 'earnings' | 'profile'
   | 'edittrip' | 'notices' | 'impact'
+  | 'admin' | 'requests' | 'application'
 
 // Resumen que muestra EndTripModal al terminar un viaje.
 export interface EndSummary {

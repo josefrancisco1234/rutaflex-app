@@ -4,6 +4,7 @@ import { cloudReady, resetCloud } from '../store/cloud'
 import { clearRouteTried } from '../lib/route'
 import { getPath } from '../lib/geo'
 import { seed } from '../data/seed'
+import { approvedDriver } from '../lib/driver'
 
 // Controles de la exposición (no son funciones del producto).
 export default function DemoLab() {
@@ -75,7 +76,7 @@ export default function DemoLab() {
       <summary>Laboratorio de exposición · controles de datos, no funciones del producto</summary>
       <p className="muted">Escenarios simulados para comprobar restricciones. Tip: abre otra pestaña u otro dispositivo, entra como pasajero (Gabriel) y aquí como conductor (Andrea): el pasajero ve el auto moverse en vivo vía el servidor.</p>
       <button className="secondary" onClick={resetDemo}>Reiniciar demostración</button>
-      {current && !isDriver && <>
+      {current && !isDriver && me?.role !== 'admin' && <>
         <button className="secondary" onClick={() => go('trip', 't1')}>Mi viaje (t1)</button>
         <button className="secondary" onClick={() => go('chat', 't2')}>Chat sin permiso</button>
         <button className="secondary" onClick={() => go('detail', 'missing')}>Viaje no disponible</button>
@@ -87,7 +88,7 @@ export default function DemoLab() {
         <button className="secondary" onClick={incomingMessage}>Recibir mensaje en t1 (US15)</button>
         <button className="secondary" onClick={simulateShare}>Ubicación compartida simulada (US19)</button>
       </>}
-      {current && isDriver && <>
+      {current && approvedDriver(me) && <>
         <button className="secondary" onClick={jumpToEnd}>Saltar al destino (viaje en curso)</button>
         <button className="secondary" onClick={() => go('chat', 't2')}>Chat sin permiso</button>
         <button className="secondary" onClick={() => go('edittrip', 't2')}>Editar ruta ajena (US11)</button>

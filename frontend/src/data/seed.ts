@@ -9,9 +9,13 @@ export const seed = (): Db => ({
   users: [
     { id: 'g', role: 'pasajero', name: 'Gabriel', email: 'gabriel@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5, 4], completed: 3, career: 'Ingeniería de Sistemas', zone: 'Miraflores', prefTime: '07:15' },
     { id: 'l', role: 'pasajero', name: 'Lucía Paredes', email: 'lucia@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5], completed: 2, verified: true, verifiedAt: '2026-10-01', studentCode: '20231234', career: 'Administración', zone: 'San Borja', prefTime: '17:00' },
-    { id: 'a', role: 'conductor', name: 'Andrea Salazar', email: 'andrea@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5, 5, 4, 5, 5], completed: 18, car: 'Sedán azul · DEM-101', verified: true, verifiedAt: '2026-09-20', studentCode: '20201111', career: 'Ingeniería Industrial', zone: 'Miraflores' },
-    { id: 'd', role: 'conductor', name: 'Diego Ríos', email: 'diego@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [4, 5, 4, 5], completed: 12, car: 'Hatchback gris · DEM-202', verified: true, verifiedAt: '2026-09-25', studentCode: '20212222', career: 'Economía', zone: 'San Isidro' },
-    { id: 'v', role: 'conductor', name: 'Valeria Torres', email: 'valeria@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [], completed: 0, car: 'Sedán blanco · DEM-303', zone: 'La Molina' },
+    { id: 'a', role: 'conductor', name: 'Andrea Salazar', email: 'andrea@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [5, 5, 4, 5, 5], completed: 18, car: 'Sedán azul · DEM-101', driverStatus: 'aprobado', verified: true, verifiedAt: '2026-09-20', studentCode: '20201111', career: 'Ingeniería Industrial', zone: 'Miraflores' },
+    { id: 'd', role: 'conductor', name: 'Diego Ríos', email: 'diego@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [4, 5, 4, 5], completed: 12, car: 'Hatchback gris · DEM-202', driverStatus: 'aprobado', verified: true, verifiedAt: '2026-09-25', studentCode: '20212222', career: 'Economía', zone: 'San Isidro' },
+    { id: 'v', role: 'conductor', name: 'Valeria Torres', email: 'valeria@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [], completed: 0, car: 'Sedán blanco · DEM-303', driverStatus: 'aprobado', zone: 'La Molina' },
+    // Solicitud de conductor esperando la revisión del administrador.
+    { id: 'm', role: 'conductor', name: 'Marco Quispe', email: 'marco@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [], completed: 0, car: 'Kia Picanto plateado · DEM-404', driverStatus: 'pendiente', phone: '987654321', career: 'Ingeniería Civil', zone: 'Surco', application: { model: 'Kia Picanto plateado', plate: 'DEM-404', license: 'Q45678912', soat: '2027-08-31', submittedAt: '2026-11-10' } },
+    // Administrador: revisa solicitudes de conductor y gestiona cuentas.
+    { id: 'admin', role: 'admin', name: 'Admin RutaFlex', email: 'admin@aloe.ulima.edu.pe', pass: 'RutaFlex1!', scores: [], completed: 0 },
   ],
   trips: [
     { id: 't1', driver: 'a', origin: 'Miraflores · Parque Kennedy', dest: 'Universidad de Lima', time: '07:15', seats: 2, price: 8, status: 'Activo', members: ['g', 'a'], stops: ['Av. Benavides', 'Javier Prado'], o: [-12.1219, -77.0298], d: ULIMA, w: [[-12.1272, -77.0105], [-12.0902, -76.993]] },

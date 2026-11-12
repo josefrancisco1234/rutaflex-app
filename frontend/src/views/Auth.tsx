@@ -7,7 +7,25 @@ import { institutional, showErrors } from '../lib/utils'
 import { demoMode } from '../lib/api'
 import type { FormErrors } from '../lib/utils'
 import { Field } from '../components/ui'
-import type { Role } from '../types'
+import { readApplication } from '../lib/driver'
+import type { DriverApplication, Role } from '../types'
+
+// Formulario de solicitud de conductor (registro y reenvío tras un rechazo).
+export function DriverFields({ err, app, phone }: { err: FormErrors, app?: DriverApplication, phone?: string }) {
+  return (
+    <fieldset className="driverform">
+      <legend>Solicitud de conductor</legend>
+      <p className="muted">Un administrador revisará estos datos antes de que puedas publicar rutas.</p>
+      <Field id="model" label="Vehículo (marca, modelo y color) *" placeholder="Ej. Toyota Yaris rojo" defaultValue={app?.model ?? ''} error={err.model} />
+      <div className="grid">
+        <Field id="plate" label="Placa *" placeholder="ABC-123" defaultValue={app?.plate ?? ''} error={err.plate} />
+        <Field id="license" label="Licencia de conducir *" placeholder="Q12345678" defaultValue={app?.license ?? ''} error={err.license} />
+        <Field id="soat" label="Vencimiento del SOAT *" type="date" defaultValue={app?.soat ?? ''} error={err.soat} />
+        <Field id="phone" label="Celular *" inputMode="numeric" placeholder="9XXXXXXXX" defaultValue={phone ?? ''} error={err.phone} />
+      </div>
+    </fieldset>
+  )
+}
 
 function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -44,10 +62,17 @@ export function Login() {
     let id: string | null = null
     if (cloudReady()) {
       setBusy(true)
-      try { id = await cloudLogin(email, pass) } catch { toast('No se pudo conectar con el servidor.') }
+      try { id = await cloudLogin(email, pass) } catch (e) {
+        setBusy(false)
+        // El servidor responde 403 con el motivo cuando la cuenta está suspendida.
+        const msg = (e as { error?: string } | null)?.error
+        return msg ? showErrors({ password: msg }, setErr) : toast('No se pudo conectar con el servidor.')
+      }
       setBusy(false)
     } else {
-      id = getDb().users.find(u => u.email === email && u.pass === pass)?.id ?? null
+      const u = getDb().users.find(u => u.email === email && u.pass === pass)
+      if (u?.banned) return showErrors({ password: 'Tu cuenta fue suspendida por un administrador' + (u.banReason ? '. Motivo: ' + u.banReason : '') + '.' }, setErr)
+      id = u?.id ?? null
     }
     if (!id) return showErrors({ password: 'Correo o contraseña incorrectos.' }, setErr)
     login(id)
@@ -69,6 +94,8 @@ export function Login() {
         <div className="rolepick">
           <button className="secondary" onClick={() => login('g')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
           <button className="secondary" onClick={() => login('a')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
+          <button className="secondary" onClick={() => login('admin')}><span>🛡️</span><strong>Administrador</strong>admin@aloe.ulima.edu.pe</button>
+          <button className="secondary" onClick={() => login('m')}><span>⏳</span><strong>Conductor en revisión</strong>marco@aloe.ulima.edu.pe</button>
         </div>
       </div>}
     </AuthLayout>
@@ -85,15 +112,16 @@ export function Register() {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     const name = String(f.get('name')).trim(), email = String(f.get('email')).trim().toLowerCase()
-    const pass = String(f.get('password')), car = String(f.get('car') || '').trim()
+    const pass = String(f.get('password'))
+    const driver = role === 'conductor' ? readApplication(f) : null
     const er: FormErrors = {}
     if (!name) er.name = 'Completa tu nombre.'
     if (!institutional(email)) er.email = 'Utiliza un correo institucional del dominio de demostración.'
     else if (getDb().users.some(u => u.email === email)) er.email = 'Este correo ya está registrado.'
     if (!pass.trim()) er.password = 'Completa tu contraseña.'
-    if (role === 'conductor' && !car) er.car = 'Los conductores deben registrar su vehículo.'
+    if (driver) Object.assign(er, driver.er)
     if (showErrors(er, setErr)) return
-    setPending({ name, email, pass, role, ...(role === 'conductor' ? { car } : {}) })
+    setPending({ name, email, pass, role, ...(driver ? { car: driver.car, phone: driver.phone, application: driver.app } : {}) })
     setOtpExpired(false)
     go('otp')
   }
@@ -113,7 +141,7 @@ export function Register() {
             <option value="conductor">🚗 Conductor — ofrezco viajes</option>
           </select>
         </div>
-        {role === 'conductor' && <Field id="car" label="Vehículo y placa *" placeholder="Ej. Sedán rojo · ABC-123" error={err.car} />}
+        {role === 'conductor' && <DriverFields err={err} />}
         <p className="muted">Universidad de Lima · dominio demo: aloe.ulima.edu.pe. Lista completa de dominios y política de contraseña: POR DEFINIR.</p>
         <button className="full">Continuar a verificación</button>
       </form>
@@ -132,11 +160,15 @@ export function Otp() {
     if (!pending) return go('register')
     if (otpExpired) return showErrors({ code: 'El código está vencido. Solicita un nuevo código simulado.' }, setErr)
     if (String(new FormData(e.currentTarget).get('code')).trim() !== '123456') return showErrors({ code: 'Código inválido.' }, setErr)
-    getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0 })
+    const driver = pending.role === 'conductor'
+    // Los conductores entran como pendientes hasta que un administrador revise su solicitud.
+    getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0, ...(driver ? { driverStatus: 'pendiente' as const } : {}) })
     save()
     setPending(null)
     go('login')
-    toast('Registro exitoso. Ya puedes iniciar sesión.')
+    toast(driver
+      ? 'Registro exitoso. Tu solicitud de conductor quedó en revisión; te avisaremos cuando un administrador la apruebe.'
+      : 'Registro exitoso. Ya puedes iniciar sesión.')
   }
 
   return (

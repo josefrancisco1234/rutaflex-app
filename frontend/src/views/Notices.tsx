@@ -12,12 +12,13 @@ const when = (iso: string) => {
 
 // US15 · US16 · Notificaciones de mensajes y de cambios en los viajes.
 export default function Notices() {
-  const { db, current, isDriver, go, unread, markAllRead, toast } = useSession()
+  const { db, current, isDriver, go, unread, markAllRead, toast, homeView } = useSession()
   const [kind, setKind] = useState<'todas' | NoticeKind>('todas')
   const [perm, setPerm] = useState(() => ('Notification' in window ? Notification.permission : 'denied'))
   const list = db.notices.filter(n => n.to === current && (kind === 'todas' || n.kind === kind)).slice().sort((a, b) => b.at.localeCompare(a.at))
 
   function open(tripId?: string, k?: NoticeKind) {
+    if (k === 'cuenta') return go(homeView)
     const t = tripId ? trip(tripId) : undefined
     if (!t) return toast('El viaje ya no está disponible.')
     if (k === 'mensaje' && active(t) && t.members.includes(current)) return go('chat', t.id)
@@ -38,9 +39,9 @@ export default function Notices() {
       <Heading title="Notificaciones" hu="US15 · US16" sub="Avisos de mensajes nuevos y de cambios en tus viajes." />
       <div className="row between" style={{ marginBottom: 16 }}>
         <div className="btnrow" role="group" aria-label="Filtrar notificaciones" style={{ margin: 0 }}>
-          {(['todas', 'mensaje', 'viaje'] as const).map(k => (
+          {(['todas', 'mensaje', 'viaje', 'cuenta'] as const).map(k => (
             <button key={k} className={kind === k ? '' : 'secondary'} onClick={() => setKind(k)}>
-              {k === 'todas' ? 'Todas' : k === 'mensaje' ? '💬 Mensajes' : '🚗 Viajes'}
+              {k === 'todas' ? 'Todas' : k === 'mensaje' ? '💬 Mensajes' : k === 'viaje' ? '🚗 Viajes' : '🛡️ Cuenta'}
             </button>
           ))}
         </div>
@@ -53,7 +54,7 @@ export default function Notices() {
         <div className="card noticelist">
           {list.map(n => (
             <button key={n.id} className={'notice' + (n.read ? '' : ' unread')} onClick={() => open(n.trip, n.kind)}>
-              <span className="nicon">{n.kind === 'mensaje' ? '💬' : '🚗'}</span>
+              <span className="nicon">{n.kind === 'mensaje' ? '💬' : n.kind === 'cuenta' ? '🛡️' : '🚗'}</span>
               <span className="nbody"><span>{n.text}</span><small>{when(n.at)}{n.read ? '' : ' · Nuevo'}</small></span>
             </button>
           ))}

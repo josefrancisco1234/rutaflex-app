@@ -18,6 +18,9 @@ import { Chats, Chat } from './views/Chat'
 import { History, Savings, Earnings, ProfileView, Impact } from './views/Account'
 import Notices from './views/Notices'
 import Guide from './views/Guide'
+import { AdminUsers, AdminRequests } from './views/Admin'
+import Application from './views/Application'
+import { approvedDriver } from './lib/driver'
 import type { PendingUser } from './types'
 
 const VIEWS: Record<ViewKey, ComponentType> = {
@@ -26,7 +29,13 @@ const VIEWS: Record<ViewKey, ComponentType> = {
   dhome: DriverHome, publish: Publish, trip: TripView,
   chats: Chats, chat: Chat, history: History, savings: Savings, earnings: Earnings, profile: ProfileView,
   edittrip: EditTrip, notices: Notices, impact: Impact,
+  admin: AdminUsers, requests: AdminRequests, application: Application,
 }
+const NAV_A: [ViewKey, string][] = [['admin', 'Usuarios'], ['requests', 'Solicitudes de conductor']]
+// Conductor cuya solicitud todavía no fue aprobada.
+const NAV_PENDING: [ViewKey, string][] = [['application', 'Mi solicitud'], ['profile', 'Perfil']]
+const ADMIN_VIEWS: ViewKey[] = ['admin', 'requests', 'notices', 'guide']
+const PENDING_VIEWS: ViewKey[] = ['application', 'profile', 'notices', 'guide']
 const NAV_P: [ViewKey, string][] = [['home', 'Buscar viajes'], ['mytrips', 'Mis viajes'], ['chats', 'Chat'], ['history', 'Historial'], ['savings', 'Ahorro'], ['impact', 'CO₂'], ['profile', 'Perfil'], ...(demoMode ? [['guide', 'Evidencia'] as [ViewKey, string]] : [])]
 const NAV_C: [ViewKey, string][] = [['dhome', 'Panel'], ['publish', 'Publicar ruta'], ['chats', 'Chat'], ['history', 'Historial'], ['earnings', 'Ganancias'], ['impact', 'CO₂'], ['profile', 'Perfil'], ...(demoMode ? [['guide', 'Evidencia'] as [ViewKey, string]] : [])]
 const DRIVER_ONLY: ViewKey[] = ['dhome', 'publish', 'earnings', 'edittrip']
@@ -34,7 +43,12 @@ const PASSENGER_ONLY: ViewKey[] = ['home', 'mytrips', 'savings', 'detail']
 const PUBLIC: ViewKey[] = ['login', 'register', 'otp', 'guide']
 const STATUS_TEXT: Record<CloudStatus, string> = { local: '💾 Modo local', connecting: '☁️ Conectando…', online: '☁️ Servidor en línea', error: '⚠️ Sin servidor · modo local' }
 
-const homeFor = (id: string): ViewKey => user(id)?.role === 'conductor' ? 'dhome' : 'home'
+const homeFor = (id: string): ViewKey => {
+  const u = user(id)
+  if (u?.role === 'admin') return 'admin'
+  if (u?.role === 'conductor') return approvedDriver(u) ? 'dhome' : 'application'
+  return 'home'
+}
 
 export default function App() {
   const db = useDb()
@@ -52,6 +66,8 @@ export default function App() {
 
   const me = current ? user(current) ?? null : null
   const isDriver = me?.role === 'conductor'
+  const isAdmin = me?.role === 'admin'
+  const pendingDriver = isDriver && !approvedDriver(me)
 
   const setCurrent = useCallback((id: string | null) => {
     setCurrentState(id)
@@ -73,6 +89,17 @@ export default function App() {
   useEffect(() => {
     if (current && !user(current) && cloud !== 'connecting') setCurrent(null)
   }, [db, current, cloud, setCurrent])
+
+  // Cuenta suspendida por un admin mientras estaba en uso: se cierra la sesión.
+  const bannedNow = !!me?.banned
+  useEffect(() => {
+    if (!bannedNow) return
+    const reason = me?.banReason
+    setCurrent(null)
+    resetSession()
+    go('login')
+    toast('Tu cuenta fue suspendida por un administrador.' + (reason ? ' Motivo: ' + reason : ''))
+  }, [bannedNow]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
@@ -118,7 +145,7 @@ export default function App() {
     if (!n) return
     // No interrumpir si ya se está leyendo ese chat.
     if (n.kind === 'mensaje' && view === 'chat' && selected === n.trip) return
-    toast((n.kind === 'mensaje' ? '💬 ' : '🚗 ') + n.text)
+    toast((n.kind === 'mensaje' ? '💬 ' : n.kind === 'cuenta' ? '🛡️ ' : '🚗 ') + n.text)
     try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification('RutaFlex', { body: n.text }) } catch {}
   }, [db, db.notices.length, current, view, selected, toast]) // db se muta en el sitio: el largo detecta avisos nuevos
 
@@ -131,8 +158,14 @@ export default function App() {
 
   // Reglas de acceso por rol.
   let v: ViewKey = VIEWS[view] ? view : 'login'
-  if (me && isDriver && PASSENGER_ONLY.includes(v)) v = 'dhome'
-  if (me && !isDriver && DRIVER_ONLY.includes(v)) v = 'home'
+  if (me && current) {
+    if (isAdmin) { if (!ADMIN_VIEWS.includes(v)) v = 'admin' }
+    else if (v === 'admin' || v === 'requests') v = homeFor(current)
+    else if (pendingDriver) { if (!PENDING_VIEWS.includes(v)) v = 'application' }
+    else if (v === 'application' && !isDriver) v = 'home'
+    else if (isDriver && PASSENGER_ONLY.includes(v)) v = 'dhome'
+    else if (!isDriver && DRIVER_ONLY.includes(v)) v = 'home'
+  }
   if (!me && !PUBLIC.includes(v)) v = 'login'
   const View = VIEWS[v]
 
@@ -149,7 +182,7 @@ export default function App() {
         <div className="brand"><b>RF</b>Ruta<span>Flex</span></div>
         <nav>
           {me
-            ? (isDriver ? NAV_C : NAV_P).map(([key, label]) => (
+            ? (isAdmin ? NAV_A : pendingDriver ? NAV_PENDING : isDriver ? NAV_C : NAV_P).map(([key, label]) => (
               <button key={key} className={v === key ? 'active' : ''} onClick={() => go(key)}>{label}</button>
             ))
             : demoMode && <button onClick={() => go('guide')}>Guía y trazabilidad</button>}
