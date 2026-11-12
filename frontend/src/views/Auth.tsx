@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useApp } from '../context'
 import { getDb, save } from '../store/db'
-import { cloudReady, cloudLogin } from '../store/cloud'
+import { cloudReady, cloudLogin, cloudRegister } from '../store/cloud'
 import { institutional, showErrors } from '../lib/utils'
 import { demoMode } from '../lib/api'
 import type { FormErrors } from '../lib/utils'
@@ -78,6 +78,20 @@ export function Login() {
     login(id)
   }
 
+  // Perfiles ficticios: con el backend en línea también pasan por /api/login para obtener su token.
+  async function quick(id: string, email: string) {
+    if (!cloudReady()) return login(id)
+    setBusy(true)
+    try {
+      const uid = await cloudLogin(email, 'RutaFlex1!')
+      setBusy(false)
+      return uid ? login(uid) : toast('No se pudo iniciar sesión con el perfil de demostración.')
+    } catch {
+      setBusy(false)
+      toast('No se pudo conectar con el servidor.')
+    }
+  }
+
   return (
     <AuthLayout>
       <div className="tag">US01</div>
@@ -92,10 +106,10 @@ export function Login() {
       {demoMode && <div className="alert">
         <strong>Perfiles ficticios de exposición</strong> · contraseña: RutaFlex1!
         <div className="rolepick">
-          <button className="secondary" onClick={() => login('g')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
-          <button className="secondary" onClick={() => login('a')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
-          <button className="secondary" onClick={() => login('admin')}><span>🛡️</span><strong>Administrador</strong>admin@aloe.ulima.edu.pe</button>
-          <button className="secondary" onClick={() => login('m')}><span>⏳</span><strong>Conductor en revisión</strong>marco@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('g', 'gabriel@aloe.ulima.edu.pe')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('a', 'andrea@aloe.ulima.edu.pe')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('admin', 'admin@aloe.ulima.edu.pe')}><span>🛡️</span><strong>Administrador</strong>admin@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('m', 'marco@aloe.ulima.edu.pe')}><span>⏳</span><strong>Conductor en revisión</strong>marco@aloe.ulima.edu.pe</button>
         </div>
       </div>}
     </AuthLayout>
@@ -119,6 +133,7 @@ export function Register() {
     if (!institutional(email)) er.email = 'Utiliza un correo institucional del dominio de demostración.'
     else if (getDb().users.some(u => u.email === email)) er.email = 'Este correo ya está registrado.'
     if (!pass.trim()) er.password = 'Completa tu contraseña.'
+    else if (pass.length < 8) er.password = 'La contraseña debe tener al menos 8 caracteres.'
     if (driver) Object.assign(er, driver.er)
     if (showErrors(er, setErr)) return
     setPending({ name, email, pass, role, ...(driver ? { car: driver.car, phone: driver.phone, application: driver.app } : {}) })
@@ -155,15 +170,25 @@ export function Otp() {
   const { go, toast, pending, setPending, otpExpired, setOtpExpired } = useApp()
   const [err, setErr] = useState<FormErrors>({})
 
-  function submit(e: FormEvent<HTMLFormElement>) {
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!pending) return go('register')
     if (otpExpired) return showErrors({ code: 'El código está vencido. Solicita un nuevo código simulado.' }, setErr)
     if (String(new FormData(e.currentTarget).get('code')).trim() !== '123456') return showErrors({ code: 'Código inválido.' }, setErr)
     const driver = pending.role === 'conductor'
-    // Los conductores entran como pendientes hasta que un administrador revise su solicitud.
-    getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0, ...(driver ? { driverStatus: 'pendiente' as const } : {}) })
-    save()
+    if (cloudReady()) {
+      // Con el backend, la cuenta la crea el servidor (valida el dominio y cifra la contraseña).
+      setBusy(true)
+      const error = await cloudRegister(pending)
+      setBusy(false)
+      if (error) return showErrors({ code: error }, setErr)
+    } else {
+      // Los conductores entran como pendientes hasta que un administrador revise su solicitud.
+      getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0, ...(driver ? { driverStatus: 'pendiente' as const } : {}) })
+      save()
+    }
     setPending(null)
     go('login')
     toast(driver
@@ -179,7 +204,7 @@ export function Otp() {
       <div className="alert">Código ficticio: <strong>123456</strong><br />Vigencia y longitud productivas: POR DEFINIR.</div>
       <form onSubmit={submit} noValidate>
         <Field id="code" label="Código de verificación" inputMode="numeric" error={err.code} />
-        <button className="full">Verificar y registrar</button>
+        <button className="full" disabled={busy}>{busy ? 'Registrando…' : 'Verificar y registrar'}</button>
       </form>
       <button className="link" onClick={() => { setOtpExpired(true); toast('Código marcado como vencido para la prueba') }}>Simular código vencido</button>
       <button className="link" onClick={() => { setOtpExpired(false); toast('Nuevo código simulado: 123456') }}>Simular nuevo código</button>
