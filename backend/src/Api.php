@@ -17,7 +17,11 @@ final class HttpError extends \RuntimeException
 /** Endpoints del backend. Todos se invocan con POST y cuerpo JSON. */
 final class Api
 {
+    // Roles que se pueden registrar desde la app. El rol admin solo se crea con bin/crear-admin.php
+    // (o con los datos de la demo en modo exposición).
     private const ROLES = ['pasajero', 'conductor'];
+    private const ALL_ROLES = ['pasajero', 'conductor', 'admin'];
+    private const DRIVER_STATES = ['pendiente', 'aprobado', 'rechazado'];
 
     private PDO $db;
 
@@ -38,7 +42,8 @@ final class Api
             $this->db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
             $version = (int) $this->db->query('SELECT version FROM rf_meta WHERE id = 1')->fetchColumn();
             $tables = [
-                'usuarios' => 'SELECT id, seq, rol, nombre, email, vehiculo, puntuaciones, viajes_completados, verificado, extra FROM usuarios',
+                'usuarios' => 'SELECT id, seq, rol, nombre, email, vehiculo, puntuaciones, viajes_completados, verificado, extra,
+                                      estado_conductor, motivo_rechazo, baneado, motivo_baneo, creado_en FROM usuarios',
                 'viajes' => 'SELECT id, seq, conductor_id, origen, destino, hora, asientos, precio, estado, miembros, paradas, taxi, fecha, extra FROM viajes',
                 'mensajes' => 'SELECT id, seq, viaje_id, remitente_id, texto, hora FROM mensajes',
                 'calificaciones' => 'SELECT id, seq, viaje_id, de_id, para_id, puntuacion FROM calificaciones',
@@ -71,7 +76,7 @@ final class Api
     public function sync(array $in): string
     {
         $p = $this->payload($in);
-        $this->transaction(fn () => $this->upsertAll($p));
+        $this->transaction(fn () => $this->upsertAll($p, false));
         return 'null';
     }
 
@@ -86,12 +91,17 @@ final class Api
             throw new HttpError(400, 'email y pass son obligatorios');
         }
         $st = $this->db->prepare(
-            'SELECT u.id, c.pass_hash FROM usuarios u JOIN credenciales c ON c.usuario_id = u.id WHERE u.email = :email LIMIT 1'
+            'SELECT u.id, u.baneado, u.motivo_baneo, c.pass_hash FROM usuarios u JOIN credenciales c ON c.usuario_id = u.id WHERE u.email = :email LIMIT 1'
         );
         $st->execute(['email' => self::email($email)]);
         $row = $st->fetch();
         // Si el usuario no existe se verifica igual contra un hash para no delatar si el correo existe por tiempo de respuesta.
         $ok = password_verify($pass, $row['pass_hash'] ?? password_hash($pass, PASSWORD_BCRYPT));
+        // Cuenta suspendida por un admin: solo se informa después de validar la contraseña.
+        if ($row && $ok && $row['baneado']) {
+            throw new HttpError(403, 'Tu cuenta fue suspendida por un administrador'
+                . ($row['motivo_baneo'] ? '. Motivo: ' . $row['motivo_baneo'] : '') . '.');
+        }
         return json_encode($row && $ok ? $row['id'] : null, JSON_THROW_ON_ERROR);
     }
 
@@ -110,7 +120,7 @@ final class Api
             foreach (['notificaciones', 'calificaciones', 'mensajes', 'viajes', 'credenciales', 'usuarios'] as $table) {
                 $this->db->exec("DELETE FROM $table");
             }
-            $this->upsertAll($p);
+            $this->upsertAll($p, true);
             $this->db->exec('UPDATE rf_meta SET version = version + 1 WHERE id = 1');
         });
         return 'null';
@@ -311,6 +321,136 @@ final class Api
         return json_encode((float) $st->fetchColumn());
     }
 
+    // ==================================================================
+    // Administración: revisión de solicitudes de conductor, suspensión y eliminación de cuentas.
+    // Los endpoints admin-* reciben el id del administrador y el servidor comprueba su rol.
+    // ==================================================================
+
+    // POST /api/driver-apply  { user, p: { model, plate, license, soat, phone } }  →  true
+    // Un conductor rechazado corrige su solicitud y la vuelve a enviar a revisión.
+    public function driverApply(array $in): string
+    {
+        $id = $this->str($in, 'user');
+        $p = $in['p'] ?? null;
+        if (!is_array($p)) {
+            throw new HttpError(400, 'Falta el campo p');
+        }
+        [$app, $phone] = self::application($p);
+        $this->transaction(function () use ($id, $app, $phone) {
+            $u = $this->requireUser($id, true);
+            if ($u['rol'] !== 'conductor') {
+                throw new HttpError(403, 'Solo una cuenta de conductor puede enviar la solicitud');
+            }
+            if ($u['estado_conductor'] === 'aprobado') {
+                throw new HttpError(409, 'Tu solicitud ya fue aprobada');
+            }
+            $st = $this->db->prepare(
+                "UPDATE usuarios SET estado_conductor = 'pendiente', motivo_rechazo = NULL, vehiculo = :car,
+                        extra = (extra - 'reviewedAt') || jsonb_build_object('phone', CAST(:phone AS text), 'application', CAST(:app AS jsonb))
+                 WHERE id = :id"
+            );
+            $st->execute([
+                'id' => $id,
+                'car' => $app['model'] . ' · ' . $app['plate'],
+                'phone' => $phone,
+                'app' => json_encode($app, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            ]);
+        });
+        return 'true';
+    }
+
+    // POST /api/admin-review  { admin, user, approve, reason? }  →  true
+    // Aprueba o rechaza una solicitud pendiente. Rechazar exige un motivo, que se notifica al solicitante.
+    public function adminReview(array $in): string
+    {
+        $admin = $this->requireAdmin($in);
+        $id = $this->str($in, 'user');
+        $approve = $in['approve'] ?? null;
+        if (!is_bool($approve)) {
+            throw new HttpError(400, 'Campo obligatorio inválido: approve');
+        }
+        $reason = trim((string) ($in['reason'] ?? ''));
+        if (!$approve && (self::len($reason) < 5 || self::len($reason) > 300)) {
+            throw new HttpError(422, 'Escribe el motivo del rechazo (entre 5 y 300 caracteres)');
+        }
+        $this->transaction(function () use ($admin, $id, $approve, $reason) {
+            $u = $this->requireUser($id, true);
+            if ($u['rol'] !== 'conductor' || $u['estado_conductor'] !== 'pendiente') {
+                throw new HttpError(409, 'Esta solicitud ya fue revisada');
+            }
+            $st = $this->db->prepare(
+                "UPDATE usuarios SET estado_conductor = :state, motivo_rechazo = :reason,
+                        extra = extra || jsonb_build_object('reviewedAt', to_char(now(), 'YYYY-MM-DD HH24:MI'), 'reviewedBy', CAST(:admin AS text))
+                 WHERE id = :id"
+            );
+            $st->execute([
+                'id' => $id, 'admin' => $admin,
+                'state' => $approve ? 'aprobado' : 'rechazado',
+                'reason' => $approve ? null : $reason,
+            ]);
+            $this->notify([$id], 'cuenta', $approve
+                ? '¡Tu solicitud de conductor fue aprobada! Ya puedes publicar tus rutas.'
+                : "Tu solicitud de conductor fue rechazada. Motivo: $reason. Puedes corregir tus datos y enviarla de nuevo.", null);
+        });
+        return 'true';
+    }
+
+    // POST /api/admin-ban  { admin, user, ban, reason? }  →  true
+    // Suspende (o reactiva) una cuenta. Al suspender se cancelan sus viajes por iniciar y se liberan sus asientos.
+    public function adminBan(array $in): string
+    {
+        $admin = $this->requireAdmin($in);
+        $id = $this->str($in, 'user');
+        $ban = $in['ban'] ?? null;
+        if (!is_bool($ban)) {
+            throw new HttpError(400, 'Campo obligatorio inválido: ban');
+        }
+        $reason = trim((string) ($in['reason'] ?? ''));
+        if ($ban && (self::len($reason) < 3 || self::len($reason) > 200)) {
+            throw new HttpError(422, 'Escribe el motivo de la suspensión (entre 3 y 200 caracteres)');
+        }
+        if ($id === $admin) {
+            throw new HttpError(422, 'No puedes suspender tu propia cuenta');
+        }
+        $this->transaction(function () use ($id, $ban, $reason) {
+            $u = $this->requireUser($id, true);
+            if ($u['rol'] === 'admin') {
+                throw new HttpError(403, 'No se puede suspender a un administrador');
+            }
+            $st = $this->db->prepare('UPDATE usuarios SET baneado = :ban, motivo_baneo = :reason WHERE id = :id');
+            $st->execute(['id' => $id, 'ban' => $ban ? 'true' : 'false', 'reason' => $ban ? $reason : null]);
+            if ($ban) {
+                $this->detachUser($id, 'suspendida');
+            }
+        });
+        return 'true';
+    }
+
+    // POST /api/admin-delete  { admin, user }  →  true
+    // Elimina la cuenta y todo lo suyo (viajes que conduce, mensajes, calificaciones y avisos).
+    public function adminDelete(array $in): string
+    {
+        $admin = $this->requireAdmin($in);
+        $id = $this->str($in, 'user');
+        if ($id === $admin) {
+            throw new HttpError(422, 'No puedes eliminar tu propia cuenta');
+        }
+        $this->transaction(function () use ($id) {
+            $u = $this->requireUser($id, true);
+            if ($u['rol'] === 'admin') {
+                throw new HttpError(403, 'No se puede eliminar a un administrador');
+            }
+            $this->detachUser($id, 'eliminada');
+            // Se quita de los viajes ajenos ya terminados para no dejar participantes inexistentes.
+            $st = $this->db->prepare('UPDATE viajes SET miembros = array_remove(miembros, :id), actualizado_en = now() WHERE :id2 = ANY(miembros)');
+            $st->execute(['id' => $id, 'id2' => $id]);
+            $this->db->prepare('DELETE FROM usuarios WHERE id = :id')->execute(['id' => $id]);
+            // Las bajas no viajan en el sondeo: subir la versión hace que todos los clientes recarguen.
+            $this->db->exec('UPDATE rf_meta SET version = version + 1 WHERE id = 1');
+        });
+        return 'true';
+    }
+
     // ------------------------------------------------------------------
     // Internos
     // ------------------------------------------------------------------
@@ -359,24 +499,32 @@ final class Api
         }
     }
 
-    private function upsertAll(array $p): void
+    /** $trusted: datos de la demo (POST /reset). Desde /sync el cliente no puede tocar los campos de administración. */
+    private function upsertAll(array $p, bool $trusted): void
     {
-        $this->upsertUsers($p['users']);
-        $this->upsertTrips($p['trips']);
+        $this->upsertUsers($p['users'], $trusted);
+        $this->upsertTrips($p['trips'], $trusted);
         $this->upsertMessages($p['messages']);
         $this->upsertRatings($p['ratings']);
         $this->upsertNotices($p['notices']);
     }
 
-    private function upsertUsers(array $users): void
+    private function upsertUsers(array $users, bool $trusted): void
     {
+        // Rol, estado de la solicitud de conductor y suspensión solo los cambia un admin (endpoints admin-*).
+        // Desde /sync se ignoran en cuentas existentes, y una cuenta nueva de conductor siempre entra como pendiente.
+        $adminCols = $trusted
+            ? 'rol = EXCLUDED.rol, estado_conductor = EXCLUDED.estado_conductor, motivo_rechazo = EXCLUDED.motivo_rechazo,
+               baneado = EXCLUDED.baneado, motivo_baneo = EXCLUDED.motivo_baneo,'
+            : '';
         $user = $this->db->prepare(
-            "INSERT INTO usuarios (id, rol, nombre, email, vehiculo, puntuaciones, viajes_completados, verificado, extra)
+            "INSERT INTO usuarios (id, rol, nombre, email, vehiculo, puntuaciones, viajes_completados, verificado, extra,
+                                   estado_conductor, motivo_rechazo, baneado, motivo_baneo)
              VALUES (:id, :rol, :nombre, :email, :vehiculo,
                      ARRAY(SELECT e::int FROM jsonb_array_elements_text(CAST(:scores AS jsonb)) AS e), :completed,
-                     :verified, CAST(:extra AS jsonb))
-             ON CONFLICT (id) DO UPDATE SET
-               rol = EXCLUDED.rol, nombre = EXCLUDED.nombre, email = EXCLUDED.email,
+                     :verified, CAST(:extra AS jsonb), :driverStatus, :rejectReason, :banned, :banReason)
+             ON CONFLICT (id) DO UPDATE SET $adminCols
+               nombre = EXCLUDED.nombre, email = EXCLUDED.email,
                vehiculo = EXCLUDED.vehiculo, puntuaciones = EXCLUDED.puntuaciones,
                viajes_completados = EXCLUDED.viajes_completados,
                verificado = EXCLUDED.verificado, extra = EXCLUDED.extra"
@@ -387,13 +535,27 @@ final class Api
         );
         foreach ($users as $u) {
             $role = $this->str($u, 'role');
-            if (!in_array($role, self::ROLES, true)) {
+            if (!in_array($role, $trusted ? self::ALL_ROLES : self::ROLES, true)) {
                 throw new HttpError(400, 'Rol inválido');
             }
             $id = $this->str($u, 'id');
             $scores = $u['scores'] ?? [];
             if (!is_array($scores) || !array_is_list($scores)) {
                 throw new HttpError(400, 'scores inválido');
+            }
+            if ($trusted) {
+                $status = $role === 'conductor' ? ($this->optStr($u, 'driverStatus') ?? 'aprobado') : null;
+                if ($status !== null && !in_array($status, self::DRIVER_STATES, true)) {
+                    throw new HttpError(400, 'Estado de conductor inválido');
+                }
+                $admin = [
+                    'driverStatus' => $status,
+                    'rejectReason' => $this->optStr($u, 'rejectReason'),
+                    'banned' => !empty($u['banned']) ? 'true' : 'false',
+                    'banReason' => $this->optStr($u, 'banReason'),
+                ];
+            } else {
+                $admin = ['driverStatus' => $role === 'conductor' ? 'pendiente' : null, 'rejectReason' => null, 'banned' => 'false', 'banReason' => null];
             }
             $user->execute([
                 'id' => $id,
@@ -405,7 +567,7 @@ final class Api
                 'completed' => (int) ($u['completed'] ?? 0),
                 'verified' => !empty($u['verified']) ? 'true' : 'false',
                 'extra' => $this->jsonObj($u, 'extra'),
-            ]);
+            ] + $admin);
             $pass = $u['pass'] ?? '';
             if (is_string($pass) && $pass !== '') {
                 $cred->execute(['id' => $id, 'hash' => password_hash($pass, PASSWORD_BCRYPT)]);
@@ -413,8 +575,13 @@ final class Api
         }
     }
 
-    private function upsertTrips(array $trips): void
+    private function upsertTrips(array $trips, bool $trusted): void
     {
+        // Un viaje nuevo solo lo puede publicar un conductor aprobado y no suspendido.
+        $exists = $this->db->prepare('SELECT 1 FROM viajes WHERE id = :id');
+        $canDrive = $this->db->prepare(
+            "SELECT rol = 'conductor' AND estado_conductor = 'aprobado' AND NOT baneado FROM usuarios WHERE id = :id"
+        );
         $st = $this->db->prepare(
             "INSERT INTO viajes (id, conductor_id, origen, destino, hora, asientos, precio, estado,
                                  miembros, paradas, taxi, fecha, extra, actualizado_en)
@@ -442,6 +609,15 @@ final class Api
             $extra = $t['extra'] ?? [];
             if (!is_array($extra)) {
                 throw new HttpError(400, 'extra inválido');
+            }
+            if (!$trusted) {
+                $exists->execute(['id' => $this->str($t, 'id')]);
+                if (!$exists->fetchColumn()) {
+                    $canDrive->execute(['id' => $this->str($t, 'driver')]);
+                    if ($canDrive->fetchColumn() !== true) {
+                        throw new HttpError(403, 'Solo los conductores aprobados por un administrador pueden publicar viajes');
+                    }
+                }
             }
             $stopsJson = $stops === null ? null : json_encode(array_map('strval', $stops), JSON_THROW_ON_ERROR);
             $st->execute([
@@ -508,7 +684,7 @@ final class Api
         );
         foreach ($notices as $n) {
             $kind = $this->str($n, 'kind');
-            if (!in_array($kind, ['mensaje', 'viaje'], true)) {
+            if (!in_array($kind, ['mensaje', 'viaje', 'cuenta'], true)) {
                 throw new HttpError(400, 'Tipo de notificación inválido');
             }
             $st->execute([
@@ -569,15 +745,93 @@ final class Api
         return preg_match_all('/./su', $s);
     }
 
-    private function requireUser(string $id): array
+    /** $lock: bloquea la fila hasta el final de la transacción (para revisar y actualizar sin carreras). */
+    private function requireUser(string $id, bool $lock = false): array
     {
-        $st = $this->db->prepare('SELECT id, rol, email FROM usuarios WHERE id = :id');
+        $st = $this->db->prepare(
+            'SELECT id, rol, email, estado_conductor, baneado FROM usuarios WHERE id = :id' . ($lock ? ' FOR UPDATE' : '')
+        );
         $st->execute(['id' => $id]);
         $u = $st->fetch();
         if (!$u) {
             throw new HttpError(404, 'Usuario no encontrado');
         }
         return $u;
+    }
+
+    /** Comprueba que quien hace la acción sea un administrador activo; devuelve su id. */
+    private function requireAdmin(array $in): string
+    {
+        $id = $this->str($in, 'admin');
+        $u = $this->requireUser($id);
+        if ($u['rol'] !== 'admin' || $u['baneado']) {
+            throw new HttpError(403, 'Solo un administrador puede hacer esto');
+        }
+        return $id;
+    }
+
+    /**
+     * Cuenta suspendida o eliminada: cancela los viajes por iniciar que conduce (avisando a sus pasajeros)
+     * y libera los asientos que tenía reservados en viajes ajenos por iniciar.
+     */
+    private function detachUser(string $id, string $why): void
+    {
+        $st = $this->db->prepare(
+            "SELECT id, origen, destino, hora, to_jsonb(miembros) AS miembros FROM viajes
+             WHERE conductor_id = :id AND estado = 'Activo' FOR UPDATE"
+        );
+        $st->execute(['id' => $id]);
+        $cancel = $this->db->prepare(
+            "UPDATE viajes SET estado = 'Cancelado',
+                    extra = extra || jsonb_build_object('cancelReason', CAST(:reason AS text), 'cancelledAt', now()),
+                    actualizado_en = now()
+             WHERE id = :id"
+        );
+        $reason = "la cuenta del conductor fue $why";
+        foreach ($st->fetchAll() as $t) {
+            $cancel->execute(['id' => $t['id'], 'reason' => ucfirst($reason)]);
+            $members = json_decode((string) $t['miembros'], true, 4, JSON_THROW_ON_ERROR);
+            $passengers = array_values(array_filter($members, fn ($m) => $m !== $id));
+            $route = $t['origen'] . ' → ' . $t['destino'] . ' (' . $t['hora'] . ')';
+            $this->notify($passengers, 'viaje', "El viaje $route fue cancelado porque $reason.", $t['id']);
+        }
+        $free = $this->db->prepare(
+            "UPDATE viajes SET miembros = array_remove(miembros, :id), asientos = asientos + 1, actualizado_en = now()
+             WHERE estado = 'Activo' AND conductor_id <> :id2 AND :id3 = ANY(miembros)"
+        );
+        $free->execute(['id' => $id, 'id2' => $id, 'id3' => $id]);
+    }
+
+    /**
+     * Valida el formulario de solicitud de conductor.
+     * @return array{0: array{model:string, plate:string, license:string, soat:string, submittedAt:string}, 1: string}
+     */
+    private static function application(array $p): array
+    {
+        $model = trim((string) ($p['model'] ?? ''));
+        if (self::len($model) < 3 || self::len($model) > 60) {
+            throw new HttpError(422, 'Describe el vehículo (marca, modelo y color) en 3 a 60 caracteres');
+        }
+        $plate = strtoupper(str_replace(' ', '', trim((string) ($p['plate'] ?? ''))));
+        if (preg_match('/^([A-Z0-9]{3})(\d{3})$/', $plate, $m)) {
+            $plate = $m[1] . '-' . $m[2];
+        }
+        if (!preg_match('/^[A-Z0-9]{3}-\d{3}$/', $plate)) {
+            throw new HttpError(422, 'Placa inválida (formato ABC-123)');
+        }
+        $license = strtoupper(trim((string) ($p['license'] ?? '')));
+        if (!preg_match('/^[A-Z]\d{8}$/', $license)) {
+            throw new HttpError(422, 'Licencia de conducir inválida (una letra y 8 dígitos)');
+        }
+        $soat = trim((string) ($p['soat'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $soat) || $soat < date('Y-m-d')) {
+            throw new HttpError(422, 'El SOAT debe estar vigente');
+        }
+        $phone = trim((string) ($p['phone'] ?? ''));
+        if (!preg_match('/^9\d{8}$/', $phone)) {
+            throw new HttpError(422, 'Celular inválido');
+        }
+        return [['model' => $model, 'plate' => $plate, 'license' => $license, 'soat' => $soat, 'submittedAt' => date('Y-m-d')], $phone];
     }
 
     /** Correo normalizado (minúsculas, sin espacios); igual en registro y en login. */

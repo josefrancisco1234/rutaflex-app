@@ -5,6 +5,7 @@ declare(strict_types=1);
 //   Release 1: /api/data  /api/sync  /api/login  /api/reset
 //   Release 2: /api/logout  /api/profile  /api/verify  /api/edit-trip  /api/cancel-trip
 //              /api/notifications  /api/mark-read  /api/co2
+//   Administración: /api/driver-apply  /api/admin-review  /api/admin-ban  /api/admin-delete
 // Desarrollo:  php -S localhost:8000 -t backend/public backend/public/index.php
 
 require __DIR__ . '/../src/Config.php';
@@ -57,7 +58,7 @@ set_exception_handler(function (Throwable $e): void {
 });
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-if (!preg_match('#/api/(data|sync|login|reset|logout|profile|verify|edit-trip|cancel-trip|notifications|mark-read|co2)/?$#', $path, $m)) {
+if (!preg_match('#/api/(data|sync|login|reset|logout|profile|verify|edit-trip|cancel-trip|notifications|mark-read|co2|driver-apply|admin-review|admin-ban|admin-delete)/?$#', $path, $m)) {
     fail(404, 'Endpoint no encontrado');
 }
 if ($method !== 'POST') {
@@ -88,4 +89,8 @@ respond(200, match ($m[1]) {
     'notifications' => $api->notifications($input),
     'mark-read' => $api->markRead($input),
     'co2' => $api->co2($input),
+    'driver-apply' => $api->driverApply($input),
+    'admin-review' => $api->adminReview($input),
+    'admin-ban' => $api->adminBan($input),
+    'admin-delete' => $api->adminDelete($input),
 });
