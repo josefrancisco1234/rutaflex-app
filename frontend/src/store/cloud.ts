@@ -14,17 +14,32 @@ export function useCloudStatus() {
   return useSyncExternalStore(fn => { statusListeners.add(fn); return () => statusListeners.delete(fn) }, () => status)
 }
 
-// Todos los endpoints del backend PHP son POST con cuerpo JSON: <apiUrl>/data | sync | login | reset.
+// ---------- sesión ----------
+// /api/login devuelve un token; cada petición lo envía en Authorization y el servidor
+// identifica al usuario con él (nunca con un id que mande el cliente).
+const TOKEN_KEY = 'rf-token'
+let token: string | null = (() => { try { return sessionStorage.getItem(TOKEN_KEY) } catch { return null } })()
+function setToken(t: string | null) {
+  token = t
+  try { t ? sessionStorage.setItem(TOKEN_KEY, t) : sessionStorage.removeItem(TOKEN_KEY) } catch {}
+}
+export const hasSession = () => token !== null
+// La app escucha este evento para volver al login cuando el servidor rechaza la sesión (vencida o suspendida).
+export const SESSION_EXPIRED = 'rf-session-expired'
+
+// Todos los endpoints del backend PHP son POST con cuerpo JSON: <apiUrl>/data | sync | login | register | reset…
 async function post<T = null>(endpoint: string, body: object): Promise<{ data: T | null, error: unknown }> {
   try {
     if (!apiUrl) throw new Error('El backend no está configurado')
-    const res = await fetch(`${apiUrl}/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = 'Bearer ' + token
+    const res = await fetch(`${apiUrl}/${endpoint}`, { method: 'POST', headers, body: JSON.stringify(body) })
     const text = await res.text()
     const data = text ? JSON.parse(text) : null
+    if (res.status === 401 && token) {
+      setToken(null)
+      window.dispatchEvent(new Event(SESSION_EXPIRED))
+    }
     return res.ok ? { data, error: null } : { data: null, error: data ?? res.statusText }
   } catch (error) {
     return { data: null, error }
@@ -108,11 +123,13 @@ const fromNotice = (r: NoticeRow): Notice => {
 type Kind = 'users' | 'trips' | 'messages' | 'ratings' | 'notices'
 interface Entry { key: string, kind: Kind, json: string, payload: object }
 
-function entries(db: Db) {
+// withPass: solo al reiniciar la demo se envían las contraseñas de los perfiles ficticios.
+// En la sincronización normal nunca viaja una contraseña (el servidor además las ignora).
+function entries(db: Db, withPass = false) {
   const out: Entry[] = []
   db.users.forEach(u => {
     const p = userP(u)
-    out.push({ key: 'u:' + u.id, kind: 'users', json: stable(p), payload: u.pass ? { ...p, pass: u.pass } : p })
+    out.push({ key: 'u:' + u.id, kind: 'users', json: stable(p), payload: withPass && u.pass ? { ...p, pass: u.pass } : p })
   })
   db.trips.forEach(t => {
     const p = tripP(t)
@@ -274,16 +291,46 @@ export async function initCloud() {
 export async function resetCloud() {
   if (!demoMode) throw new Error('Reiniciar solo está disponible en modo exposición')
   const s = seed()
-  const { error } = await post('reset', { p: group(entries(s)) })
+  const { error } = await post('reset', { p: group(entries(s, true)) })
   if (error) throw error
   adopt((await fetchAll()) || s)
 }
 
-// Devuelve el id del usuario si correo + contraseña son correctos; si no, null.
+// Recarga los datos con la sesión actual: al entrar aparecen los chats y avisos propios,
+// y al salir se quitan del navegador los datos privados del usuario anterior.
+async function reloadCloud() {
+  if (!cloudReady()) return
+  lastHash = ''
+  try { const d = await fetchAll(); if (d) adopt(d) } catch (e) { console.error('[backend] recarga', e) }
+}
+
+// Devuelve el id del usuario si correo + contraseña son correctos (y guarda el token); si no, null.
 export async function cloudLogin(email: string, pass: string) {
-  const { data, error } = await post<string>('login', { email, pass })
+  const { data, error } = await post<{ id: string, token: string }>('login', { email, pass })
   if (error) throw error
-  return data
+  if (!data) return null
+  setToken(data.token)
+  await reloadCloud()
+  return data.id
+}
+
+// US02 · El servidor crea la cuenta (valida dominio, cifra la contraseña, conductor queda pendiente).
+export async function cloudRegister(p: { name: string, email: string, pass: string, role: Role, phone?: string, application?: object }) {
+  const { error } = await post('register', { p })
+  if (!error) return null
+  const msg = error as { error?: string, message?: string }
+  return msg?.error || msg?.message || 'No se pudo conectar con el servidor.'
+}
+
+// US03 · Invalida el token en el servidor y borra la sesión del navegador.
+export async function cloudLogout(userId: string) {
+  if (token && cloudReady()) await post('logout', { user: userId })
+  clearSession()
+}
+export function clearSession() {
+  if (!token) return
+  setToken(null)
+  void reloadCloud()
 }
 
 // ---------- Endpoints del Release 2 ----------
@@ -300,7 +347,6 @@ async function api(fn: string, body: object): Promise<ApiResult> {
 }
 
 // POST <apiUrl>/<endpoint> (backend/public/index.php · backend/src/Api.php)
-export const apiLogout = (userId: string) => api('logout', { user: userId })
 export const apiUpdateProfile = (userId: string, p: object) => api('profile', { user: userId, p })
 export const apiVerifyIdentity = (userId: string, code: string) => api('verify', { user: userId, code })
 export const apiEditTrip = (tripId: string, driverId: string, p: object) => api('edit-trip', { trip: tripId, driver: driverId, p })
