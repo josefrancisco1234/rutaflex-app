@@ -3,7 +3,7 @@ import type { ComponentType } from 'react'
 import { AppCtx } from './context'
 import type { AppContextValue, Modal, ViewKey } from './context'
 import { useDb, user, trip, passengers, getDb, save } from './store/db'
-import { useCloudStatus, apiLogout, apiMarkRead } from './store/cloud'
+import { useCloudStatus, apiMarkRead, cloudLogout, clearSession, SESSION_EXPIRED } from './store/cloud'
 import type { CloudStatus } from './store/cloud'
 import { firstName } from './lib/utils'
 import { demoMode } from './lib/api'
@@ -72,6 +72,7 @@ export default function App() {
   const setCurrent = useCallback((id: string | null) => {
     setCurrentState(id)
     try { id ? sessionStorage.setItem('rf-user', id) : sessionStorage.removeItem('rf-user') } catch {}
+    if (!id) clearSession()
   }, [])
   const toast = useCallback((text: string) => {
     setToastText(text)
@@ -101,6 +102,19 @@ export default function App() {
     toast('Tu cuenta fue suspendida por un administrador.' + (reason ? ' Motivo: ' + reason : ''))
   }, [bannedNow]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // El servidor rechazó la sesión (venció, se cerró en otro lado o la cuenta fue suspendida).
+  useEffect(() => {
+    const onExpired = () => {
+      if (!sessionStorage.getItem('rf-user')) return
+      setCurrent(null)
+      resetSession()
+      go('login')
+      toast('Tu sesión expiró. Inicia sesión de nuevo.')
+    }
+    window.addEventListener(SESSION_EXPIRED, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED, onExpired)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
     document.addEventListener('keydown', onKey)
@@ -121,7 +135,7 @@ export default function App() {
   function resetSession() { setPending(null); setQuery(''); setSearched(false); setModal(null) }
   // US03 · Cerrar sesión: borra la sesión del navegador y bloquea las pantallas protegidas.
   function logout() {
-    if (current) apiLogout(current)
+    if (current) void cloudLogout(current)
     setCurrent(null)
     resetSession()
     setSelected('t1')
