@@ -48,7 +48,7 @@ button.bell.active{background:var(--mint)}
 .recs{margin-bottom:22px}
 .reclist{display:grid;gap:10px;margin-top:6px}
 .rec{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;flex-wrap:wrap}
-.why{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#006950}
+.why{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#0b8a43}
 .why span{background:var(--mint);border-radius:20px;padding:2px 9px}
 .filters{margin-bottom:22px}
 .fgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:10px}
@@ -59,7 +59,7 @@ button.bell.active{background:var(--mint)}
 .detail dd{margin:0;font-weight:650;overflow-wrap:anywhere}
 .sharebox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:14px}
 .personpin{font-size:22px;line-height:1;filter:drop-shadow(0 2px 3px #0005)}
-.personpin.me{filter:drop-shadow(0 0 4px #008b72)}
+.personpin.me{filter:drop-shadow(0 0 4px #1e9e4a)}
 button.danger{background:#c0392b}
 button.dangertext{color:#a52a20}
 @media(max-width:850px){.fgrid{grid-template-columns:1fr 1fr}.fgrid .field:first-child{grid-column:1/-1}.detail{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr 1fr}}
@@ -116,7 +116,7 @@ button.maptoggle{background:white;color:#3c4043;border-radius:8px;box-shadow:0 1
 .suggestions small{display:block}
 .suggestions .sicon{font-size:16px;margin-top:2px}
 .routechip{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:500;background:white;border-radius:20px;box-shadow:0 1px 4px #0000004d;padding:6px 14px;font-size:14px;white-space:nowrap}
-.routechip strong{color:#188038}
+.routechip strong{color:#0f9d58}
 .routechip span{color:#5f6368}
 .mapmsg{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:600;background:#3c4043;color:white;border-radius:8px;padding:8px 14px;font-size:13px;max-width:90%}
 a.gmaps{display:inline-block;font-size:13px;font-weight:650;text-decoration:none;margin:-8px 0 14px}
