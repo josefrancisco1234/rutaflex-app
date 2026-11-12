@@ -6,8 +6,12 @@ Requisitos: PHP 8.1+ con la extensión pdo_pgsql, y PostgreSQL 12+.
    createdb rutaflex
    psql -d rutaflex -f backend/schema.sql
 
-2) Configuración
-   copiar backend/.env.example a backend/.env y poner los datos de conexión.
+2) Usuario de base de datos con permisos mínimos (recomendado)
+   psql -d rutaflex -v app_pass='una-clave-segura' -f backend/roles.sql
+   y en backend/.env:  DB_USER=rutaflex_app  DB_PASS=una-clave-segura
+   (la app solo lee y escribe filas; no puede borrar tablas ni crear usuarios).
+
+   Configuración: copiar backend/.env.example a backend/.env y poner los datos de conexión.
 
 3) Servidor de desarrollo (puerto 8000)
    php -S localhost:8000 -t backend/public backend/public/index.php
@@ -18,13 +22,30 @@ Requisitos: PHP 8.1+ con la extensión pdo_pgsql, y PostgreSQL 12+.
    npm install
    npm run dev
 
-API: todos los endpoints son POST con cuerpo JSON.
-   POST /api/data    {hash?}      -> datos completos, o {"unchanged":true} si el hash coincide
-   POST /api/sync    {p:{users,trips,messages,ratings,notices}}
-   POST /api/login   {email,pass} -> "id-usuario" o null
-   POST /api/reset   {p:{...}}    -> reinicia la demo con los datos enviados
+Seguridad (sesiones)
+   /api/login devuelve {id, token}. Las demás llamadas envían el header
+       Authorization: Bearer <token>
+   y el servidor identifica al usuario con el token (tabla sesiones; solo se guarda su hash SHA-256),
+   nunca con un id que venga en el cuerpo. Si el cuerpo trae user/driver/admin distinto al de la
+   sesión, responde 403. Sin sesión o con token vencido responde 401.
+   La sesión dura SESSION_HOURS (12 h por defecto); logout y suspensión la invalidan al instante.
 
-   Release 2 (validan las reglas en el servidor; errores con {"error": "..."} y código 4xx):
+API: todos los endpoints son POST con cuerpo JSON.
+   POST /api/data     {hash?}      -> datos visibles para quien pregunta, o {"unchanged":true}
+        Sin sesión: viajes y perfiles públicos. Con sesión: además sus chats y avisos.
+        Correo, celular, licencia, código universitario y motivos solo los ven el dueño y los admins.
+        La ubicación en vivo de un viaje solo la ven sus participantes.
+   POST /api/sync     {p:{users,trips,messages,ratings,notices}}   (requiere sesión)
+        Cada registro se acepta solo si le pertenece al usuario de la sesión: su perfil (nombre y
+        preferencias), sus viajes como conductor, su asiento como pasajero, sus mensajes, sus
+        calificaciones y los avisos a participantes de sus viajes. No cambia contraseñas, correo,
+        rol, verificación, reputación ni viajes completados (esos los calcula el servidor).
+   POST /api/login    {email,pass} -> {id, token} o null
+   POST /api/register {p:{name,email,pass,role,phone?,application?}} -> true          US02
+        Valida el dominio institucional en el servidor; contraseña de 8 a 72 caracteres.
+   POST /api/reset    {p:{...}}    -> reinicia la demo con los datos enviados (solo DEMO_MODE=true)
+
+   Release 2 (requieren sesión; validan las reglas en el servidor; errores con {"error": "..."} y código 4xx):
    POST /api/logout         {user}                  -> true                        US03
    POST /api/profile        {user, p:{name, phone?, career?, bio?, zone?, prefTime?, car?}}  US04
    POST /api/verify         {user, code}            -> true (código de 8 dígitos)  US20
@@ -34,7 +55,7 @@ API: todos los endpoints son POST con cuerpo JSON.
    POST /api/mark-read      {user}                  -> cantidad marcada            US15 · US16
    POST /api/co2            {user}                  -> kg de CO2 evitados          US23
 
-   Administración (rol admin; el servidor comprueba que "admin" sea un administrador activo):
+   Administración (el usuario de la sesión debe ser un administrador activo):
    POST /api/driver-apply   {user, p:{model, plate, license, soat, phone}}  -> true   (reenviar solicitud rechazada)
    POST /api/admin-review   {admin, user, approve, reason?}  -> true   (rechazar exige motivo; se notifica)
    POST /api/admin-ban      {admin, user, ban, reason?}      -> true   (suspender exige motivo)

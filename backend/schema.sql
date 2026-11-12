@@ -112,3 +112,14 @@ create index if not exists viajes_conductor_idx on viajes (conductor_id);
 create index if not exists mensajes_viaje_idx on mensajes (viaje_id, seq);
 create index if not exists calificaciones_para_idx on calificaciones (para_id);
 create index if not exists notificaciones_usuario_idx on notificaciones (usuario_id, seq);
+
+-- ---------- Sesiones (seguridad) ---------------------------------------
+-- El login entrega un token aleatorio; aquí solo se guarda su hash SHA-256.
+-- Cada petición identifica al usuario por su token, nunca por un id que mande el cliente.
+create table if not exists sesiones (
+  token_hash text primary key,
+  usuario_id text not null references usuarios(id) on delete cascade,
+  creado_en  timestamptz not null default now(),
+  expira_en  timestamptz not null
+);
+create index if not exists sesiones_usuario_idx on sesiones (usuario_id);

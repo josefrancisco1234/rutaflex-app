@@ -23,11 +23,85 @@ final class Api
     private const ALL_ROLES = ['pasajero', 'conductor', 'admin'];
     private const DRIVER_STATES = ['pendiente', 'aprobado', 'rechazado'];
 
+    // Dominio institucional aceptado en el registro (el servidor lo valida, no solo el frontend).
+    private const DOMAIN = '/^[^\s@]+@aloe\.ulima\.edu\.pe$/i';
+    // Datos personales de extra que solo ven su dueño y los administradores.
+    private const PRIVATE_EXTRA = ['phone', 'application', 'studentCode', 'reviewedBy', 'lastLogout'];
+    // Campos de extra que solo escribe el servidor (endpoints validados); /api/sync no los puede cambiar.
+    private const SERVER_EXTRA = ['phone', 'application', 'studentCode', 'verifiedAt', 'reviewedAt', 'reviewedBy', 'lastLogout'];
+
     private PDO $db;
+    /** Usuario de la sesión actual (id, rol, email, estado_conductor, baneado) o null si no hay token. */
+    private ?array $me = null;
+    private ?string $tokenHash = null;
 
     public function __construct()
     {
         $this->db = Database::pdo();
+    }
+
+    // ------------------------------------------------------------------
+    // Sesión: index.php llama a authenticate() con el token del header Authorization.
+    // A partir de aquí el usuario sale del token, nunca de un id enviado en el cuerpo.
+    // ------------------------------------------------------------------
+    public function authenticate(?string $token): void
+    {
+        if ($token === null || $token === '') {
+            return;
+        }
+        $hash = hash('sha256', $token);
+        $st = $this->db->prepare(
+            'SELECT u.id, u.rol, u.email, u.estado_conductor, u.baneado
+             FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
+             WHERE s.token_hash = :h AND s.expira_en > now()'
+        );
+        $st->execute(['h' => $hash]);
+        $u = $st->fetch();
+        if (!$u || $u['baneado']) {
+            throw new HttpError(401, 'Tu sesión expiró. Inicia sesión de nuevo.');
+        }
+        $this->me = $u;
+        $this->tokenHash = $hash;
+    }
+
+    /** Id del usuario autenticado; 401 si la petición no trae una sesión válida. */
+    private function me(): string
+    {
+        if ($this->me === null) {
+            throw new HttpError(401, 'Inicia sesión para continuar');
+        }
+        return $this->me['id'];
+    }
+
+    /**
+     * Id del usuario que hace la acción. Si el cuerpo trae el campo (user, driver…) por compatibilidad,
+     * debe coincidir con la sesión: nadie puede actuar en nombre de otro.
+     */
+    private function actor(array $in, string $field): string
+    {
+        $me = $this->me();
+        if (isset($in[$field]) && $in[$field] !== $me) {
+            throw new HttpError(403, 'No puedes actuar en nombre de otro usuario');
+        }
+        return $me;
+    }
+
+    private function isAdmin(): bool
+    {
+        return $this->me !== null && $this->me['rol'] === 'admin' && !$this->me['baneado'];
+    }
+
+    /** Crea una sesión nueva y devuelve el token (solo se guarda su hash). */
+    private function newSession(string $userId): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $hours = max(1, (int) Config::get('SESSION_HOURS', '12'));
+        $this->db->exec('DELETE FROM sesiones WHERE expira_en < now()');
+        $st = $this->db->prepare(
+            "INSERT INTO sesiones (token_hash, usuario_id, expira_en) VALUES (:h, :id, now() + make_interval(hours => :hours))"
+        );
+        $st->execute(['h' => hash('sha256', $token), 'id' => $userId, 'hours' => $hours]);
+        return $token;
     }
 
     // ------------------------------------------------------------------
@@ -41,18 +115,44 @@ final class Api
         try {
             $this->db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
             $version = (int) $this->db->query('SELECT version FROM rf_meta WHERE id = 1')->fetchColumn();
+            // v: quién pregunta. Sin sesión, me es NULL y adm es false.
+            $v = 'WITH v AS (SELECT CAST(:me AS text) AS me, CAST(:adm AS boolean) AS adm) ';
+            $priv = "'{" . implode(',', self::PRIVATE_EXTRA) . "}'::text[]";
             $tables = [
-                'usuarios' => 'SELECT id, seq, rol, nombre, email, vehiculo, puntuaciones, viajes_completados, verificado, extra,
-                                      estado_conductor, motivo_rechazo, baneado, motivo_baneo, creado_en FROM usuarios',
-                'viajes' => 'SELECT id, seq, conductor_id, origen, destino, hora, asientos, precio, estado, miembros, paradas, taxi, fecha, extra FROM viajes',
-                'mensajes' => 'SELECT id, seq, viaje_id, remitente_id, texto, hora FROM mensajes',
+                // Correo, datos personales y motivos solo para el propio usuario y los admins.
+                'usuarios' => $v . "SELECT u.id, u.seq, u.rol, u.nombre,
+                                      CASE WHEN u.id = v.me OR v.adm THEN u.email END AS email,
+                                      u.vehiculo, u.puntuaciones, u.viajes_completados, u.verificado,
+                                      CASE WHEN u.id = v.me OR v.adm THEN u.extra ELSE u.extra - $priv END AS extra,
+                                      u.estado_conductor,
+                                      CASE WHEN u.id = v.me OR v.adm THEN u.motivo_rechazo END AS motivo_rechazo,
+                                      u.baneado,
+                                      CASE WHEN u.id = v.me OR v.adm THEN u.motivo_baneo END AS motivo_baneo,
+                                      u.creado_en
+                               FROM usuarios u, v",
+                // La posición en vivo y las ubicaciones compartidas solo las ven los participantes del viaje (US19).
+                'viajes' => $v . "SELECT t.id, t.seq, t.conductor_id, t.origen, t.destino, t.hora, t.asientos, t.precio, t.estado,
+                                    t.miembros, t.paradas, t.taxi, t.fecha,
+                                    CASE WHEN v.me = t.conductor_id OR v.me = ANY(t.miembros) OR v.adm THEN t.extra
+                                         ELSE t.extra - '{pos,shares,gps}'::text[] END AS extra
+                             FROM viajes t, v",
+                // Cada uno ve solo los chats de los viajes en los que participa (US13).
+                'mensajes' => $v . "SELECT m.id, m.seq, m.viaje_id, m.remitente_id, m.texto, m.hora
+                               FROM mensajes m, v
+                               WHERE EXISTS (SELECT 1 FROM viajes t WHERE t.id = m.viaje_id
+                                             AND (v.me = t.conductor_id OR v.me = ANY(t.miembros)))",
                 'calificaciones' => 'SELECT id, seq, viaje_id, de_id, para_id, puntuacion FROM calificaciones',
-                'notificaciones' => 'SELECT id, seq, usuario_id, tipo, texto, viaje_id, leida, creado_en FROM notificaciones',
+                // Cada uno ve solo sus avisos.
+                'notificaciones' => $v . "SELECT n.id, n.seq, n.usuario_id, n.tipo, n.texto, n.viaje_id, n.leida, n.creado_en
+                                     FROM notificaciones n, v WHERE n.usuario_id = v.me",
             ];
+            $params = ['me' => $this->me['id'] ?? null, 'adm' => $this->isAdmin() ? 'true' : 'false'];
             $parts = [];
             foreach ($tables as $name => $sql) {
                 $agg = "SELECT coalesce(jsonb_agg(to_jsonb(t) - 'seq' ORDER BY t.seq), '[]'::jsonb) FROM ($sql) t";
-                $parts[] = '"' . $name . '":' . $this->db->query($agg)->fetchColumn();
+                $st = $this->db->prepare($agg);
+                $st->execute(str_contains($sql, ':me') ? $params : []);
+                $parts[] = '"' . $name . '":' . $st->fetchColumn();
             }
             $this->db->commit();
         } catch (\Throwable $e) {
@@ -75,8 +175,12 @@ final class Api
     // ------------------------------------------------------------------
     public function sync(array $in): string
     {
+        $me = $this->me();
+        if ($this->me['baneado']) {
+            throw new HttpError(403, 'Tu cuenta está suspendida');
+        }
         $p = $this->payload($in);
-        $this->transaction(fn () => $this->upsertAll($p, false));
+        $this->transaction(fn () => $this->syncAll($p, $me));
         return 'null';
     }
 
@@ -102,7 +206,65 @@ final class Api
             throw new HttpError(403, 'Tu cuenta fue suspendida por un administrador'
                 . ($row['motivo_baneo'] ? '. Motivo: ' . $row['motivo_baneo'] : '') . '.');
         }
-        return json_encode($row && $ok ? $row['id'] : null, JSON_THROW_ON_ERROR);
+        if (!$row || !$ok) {
+            return 'null';
+        }
+        return json_encode(['id' => $row['id'], 'token' => $this->newSession($row['id'])], JSON_THROW_ON_ERROR);
+    }
+
+    // ------------------------------------------------------------------
+    // POST /api/register  { p: { name, email, pass, role, application?, phone? } }  →  true   · US02
+    // Crea la cuenta en el servidor: valida el dominio institucional, guarda la contraseña con bcrypt
+    // y deja a los conductores como "pendiente" hasta que un admin los apruebe.
+    // ------------------------------------------------------------------
+    public function register(array $in): string
+    {
+        $p = $in['p'] ?? null;
+        if (!is_array($p)) {
+            throw new HttpError(400, 'Falta el campo p');
+        }
+        $name = trim((string) ($p['name'] ?? ''));
+        if (self::len($name) < 2 || self::len($name) > 60) {
+            throw new HttpError(422, 'El nombre debe tener entre 2 y 60 caracteres');
+        }
+        $email = self::email((string) ($p['email'] ?? ''));
+        if (!preg_match(self::DOMAIN, $email)) {
+            throw new HttpError(422, 'Solo se admiten correos institucionales');
+        }
+        $pass = $p['pass'] ?? '';
+        if (!is_string($pass) || strlen($pass) < 8 || strlen($pass) > 72) {
+            throw new HttpError(422, 'La contraseña debe tener entre 8 y 72 caracteres');
+        }
+        $role = $p['role'] ?? '';
+        if (!in_array($role, self::ROLES, true)) {
+            throw new HttpError(422, 'Rol inválido');
+        }
+        $car = null;
+        $extra = [];
+        if ($role === 'conductor') {
+            [$app, $phone] = self::application(($p['application'] ?? []) + ['phone' => $p['phone'] ?? '']);
+            $car = $app['model'] . ' · ' . $app['plate'];
+            $extra = ['phone' => $phone, 'application' => $app];
+        }
+        $id = 'u' . bin2hex(random_bytes(8));
+        $this->transaction(function () use ($id, $role, $name, $email, $car, $extra, $pass) {
+            $exists = $this->db->prepare('SELECT 1 FROM usuarios WHERE email = :email');
+            $exists->execute(['email' => $email]);
+            if ($exists->fetchColumn()) {
+                throw new HttpError(409, 'Este correo ya está registrado');
+            }
+            $this->db->prepare(
+                'INSERT INTO usuarios (id, rol, nombre, email, vehiculo, extra, estado_conductor)
+                 VALUES (:id, :rol, :nombre, :email, :car, CAST(:extra AS jsonb), :status)'
+            )->execute([
+                'id' => $id, 'rol' => $role, 'nombre' => $name, 'email' => $email, 'car' => $car,
+                'extra' => $extra === [] ? '{}' : json_encode($extra, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                'status' => $role === 'conductor' ? 'pendiente' : null,
+            ]);
+            $this->db->prepare('INSERT INTO credenciales (usuario_id, pass_hash) VALUES (:id, :hash)')
+                ->execute(['id' => $id, 'hash' => password_hash($pass, PASSWORD_BCRYPT)]);
+        });
+        return 'true';
     }
 
     // ------------------------------------------------------------------
@@ -134,10 +296,13 @@ final class Api
     // La sesión del prototipo vive en el navegador; aquí se registra el cierre.
     public function logout(array $in): string
     {
+        $id = $this->actor($in, 'user');
+        // Se invalida el token en el servidor: aunque alguien lo hubiera copiado, deja de servir.
+        $this->db->prepare('DELETE FROM sesiones WHERE token_hash = :h')->execute(['h' => $this->tokenHash]);
         $st = $this->db->prepare(
             "UPDATE usuarios SET extra = extra || jsonb_build_object('lastLogout', now()) WHERE id = :id"
         );
-        $st->execute(['id' => $this->str($in, 'user')]);
+        $st->execute(['id' => $id]);
         return json_encode($st->rowCount() > 0);
     }
 
@@ -145,7 +310,7 @@ final class Api
     // El correo y el rol no se pueden cambiar.
     public function profile(array $in): string
     {
-        $id = $this->str($in, 'user');
+        $id = $this->actor($in, 'user');
         $p = $in['p'] ?? null;
         if (!is_array($p)) {
             throw new HttpError(400, 'Falta el campo p');
@@ -194,7 +359,7 @@ final class Api
     // Valida el correo institucional y el código universitario de 8 dígitos; marca al usuario como verificado.
     public function verify(array $in): string
     {
-        $id = $this->str($in, 'user');
+        $id = $this->actor($in, 'user');
         $code = $this->str($in, 'code');
         if (!preg_match('/^\d{8}$/', $code)) {
             throw new HttpError(422, 'Código universitario inválido');
@@ -218,7 +383,7 @@ final class Api
     public function editTrip(array $in): string
     {
         $tripId = $this->str($in, 'trip');
-        $driver = $this->str($in, 'driver');
+        $driver = $this->actor($in, 'driver');
         $p = $in['p'] ?? null;
         if (!is_array($p)) {
             throw new HttpError(400, 'Falta el campo p');
@@ -267,7 +432,7 @@ final class Api
     public function cancelTrip(array $in): string
     {
         $tripId = $this->str($in, 'trip');
-        $driver = $this->str($in, 'driver');
+        $driver = $this->actor($in, 'driver');
         $reason = trim($this->str($in, 'reason'));
         if (self::len($reason) > 120) {
             throw new HttpError(422, 'El motivo admite máximo 120 caracteres');
@@ -295,7 +460,7 @@ final class Api
             "SELECT coalesce(jsonb_agg(to_jsonb(n) - 'seq' ORDER BY n.seq DESC), '[]'::jsonb)
              FROM (SELECT * FROM notificaciones WHERE usuario_id = :id ORDER BY seq DESC LIMIT 100) n"
         );
-        $st->execute(['id' => $this->str($in, 'user')]);
+        $st->execute(['id' => $this->actor($in, 'user')]);
         return (string) $st->fetchColumn();
     }
 
@@ -303,7 +468,7 @@ final class Api
     public function markRead(array $in): string
     {
         $st = $this->db->prepare('UPDATE notificaciones SET leida = true WHERE usuario_id = :id AND NOT leida');
-        $st->execute(['id' => $this->str($in, 'user')]);
+        $st->execute(['id' => $this->actor($in, 'user')]);
         return json_encode($st->rowCount());
     }
 
@@ -316,7 +481,7 @@ final class Api
                     CASE WHEN conductor_id = :id THEN greatest(cardinality(miembros) - 1, 0) ELSE 1 END), 2), 0)
              FROM viajes WHERE estado = 'Finalizado' AND :id2 = ANY(miembros)"
         );
-        $id = $this->str($in, 'user');
+        $id = $this->actor($in, 'user');
         $st->execute(['id' => $id, 'id2' => $id]);
         return json_encode((float) $st->fetchColumn());
     }
@@ -330,7 +495,7 @@ final class Api
     // Un conductor rechazado corrige su solicitud y la vuelve a enviar a revisión.
     public function driverApply(array $in): string
     {
-        $id = $this->str($in, 'user');
+        $id = $this->actor($in, 'user');
         $p = $in['p'] ?? null;
         if (!is_array($p)) {
             throw new HttpError(400, 'Falta el campo p');
@@ -420,6 +585,8 @@ final class Api
             $st = $this->db->prepare('UPDATE usuarios SET baneado = :ban, motivo_baneo = :reason WHERE id = :id');
             $st->execute(['id' => $id, 'ban' => $ban ? 'true' : 'false', 'reason' => $ban ? $reason : null]);
             if ($ban) {
+                // Cierra de inmediato todas sus sesiones abiertas.
+                $this->db->prepare('DELETE FROM sesiones WHERE usuario_id = :id')->execute(['id' => $id]);
                 $this->detachUser($id, 'suspendida');
             }
         });
@@ -497,6 +664,347 @@ final class Api
             }
             throw $e;
         }
+    }
+
+    // ==================================================================
+    // /api/sync con sesión: cada registro se acepta solo si le pertenece a quien inició sesión.
+    // Lo que no le corresponde (perfiles ajenos, mensajes de otros…) se ignora en silencio,
+    // para que el cliente no quede bloqueado reintentando; las reglas de negocio sí responden error.
+    // ==================================================================
+    private function syncAll(array $p, string $me): void
+    {
+        foreach ($p['users'] as $u) {
+            $this->syncOwnUser($u, $me);
+        }
+        foreach ($p['trips'] as $t) {
+            $this->syncTrip($t, $me);
+        }
+        foreach ($p['messages'] as $m) {
+            $this->syncMessage($m, $me);
+        }
+        foreach ($p['ratings'] as $r) {
+            $this->syncRating($r, $me);
+        }
+        foreach ($p['notices'] as $n) {
+            $this->syncNotice($n, $me);
+        }
+    }
+
+    /**
+     * Solo el propio perfil, y solo nombre y preferencias. Correo, rol, contraseña, verificación,
+     * reputación y viajes completados no se cambian por aquí (los calcula o valida el servidor).
+     */
+    private function syncOwnUser(array $u, string $me): void
+    {
+        if (($u['id'] ?? null) !== $me) {
+            return;
+        }
+        $name = trim($this->str($u, 'name'));
+        if (self::len($name) < 2 || self::len($name) > 60) {
+            throw new HttpError(422, 'El nombre debe tener entre 2 y 60 caracteres');
+        }
+        $locked = '{' . implode(',', self::SERVER_EXTRA) . '}';
+        $st = $this->db->prepare(
+            "UPDATE usuarios SET nombre = :name,
+                    extra = (CAST(:extra AS jsonb) - CAST(:locked AS text[]))
+                            || coalesce((SELECT jsonb_object_agg(k, val) FROM jsonb_each(extra) AS e(k, val)
+                                         WHERE k = ANY(CAST(:locked2 AS text[]))), '{}'::jsonb)
+             WHERE id = :id"
+        );
+        $st->execute(['id' => $me, 'name' => $name, 'extra' => $this->jsonObj($u, 'extra'), 'locked' => $locked, 'locked2' => $locked]);
+    }
+
+    /** Ubicación compartida (US19): { p: [lat, lng], at: ms } o null. */
+    private static function share(mixed $s): ?array
+    {
+        if (!is_array($s) || !isset($s['p']) || !is_array($s['p']) || count($s['p']) !== 2) {
+            return null;
+        }
+        [$lat, $lng] = array_values($s['p']);
+        if (!is_numeric($lat) || !is_numeric($lng) || abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+            return null;
+        }
+        return ['p' => [(float) $lat, (float) $lng], 'at' => (int) ($s['at'] ?? 0)];
+    }
+
+    /** Copia shares del servidor y reemplaza solo la entrada de $me con lo que mandó el cliente. */
+    private static function mergeShares(array $dbExtra, array $clientExtra, string $me, bool $keepMine): array
+    {
+        $shares = is_array($dbExtra['shares'] ?? null) ? $dbExtra['shares'] : [];
+        $mine = $keepMine ? self::share($clientExtra['shares'][$me] ?? null) : null;
+        if ($mine) {
+            $shares[$me] = $mine;
+        } else {
+            unset($shares[$me]);
+        }
+        return $shares;
+    }
+
+    /**
+     * Viajes:
+     *  - nuevo: solo lo publica un conductor aprobado, a su nombre, con él como único miembro;
+     *  - del propio conductor: puede actualizarlo, pero no cambia pasajeros ni asientos libres
+     *    (eso lo hacen las reservas y /api/edit-trip) ni reabre un viaje terminado;
+     *  - ajeno: el pasajero solo puede reservar o cancelar su propio asiento y compartir su ubicación.
+     */
+    private function syncTrip(array $t, string $me): void
+    {
+        $id = $this->str($t, 'id');
+        $members = $t['members'] ?? [];
+        if (!is_array($members) || !array_is_list($members)) {
+            throw new HttpError(400, 'members inválido');
+        }
+        $members = array_values(array_unique(array_map('strval', $members)));
+        $extra = $t['extra'] ?? [];
+        if (!is_array($extra)) {
+            throw new HttpError(400, 'extra inválido');
+        }
+        $cur = $this->db->prepare(
+            'SELECT conductor_id, estado, asientos, to_jsonb(miembros) AS miembros, extra FROM viajes WHERE id = :id FOR UPDATE'
+        );
+        $cur->execute(['id' => $id]);
+        $old = $cur->fetch();
+
+        if (!$old) {
+            if (($t['driver'] ?? null) !== $me) {
+                return;
+            }
+            if ($this->me['rol'] !== 'conductor' || $this->me['estado_conductor'] !== 'aprobado') {
+                throw new HttpError(403, 'Solo los conductores aprobados por un administrador pueden publicar viajes');
+            }
+            if (($t['status'] ?? null) !== 'Activo') {
+                throw new HttpError(422, 'Un viaje nuevo debe publicarse como Activo');
+            }
+            unset($extra['shares']);
+            $this->writeTrip($t, $me, [$me], $extra);
+            return;
+        }
+
+        $oldMembers = json_decode((string) $old['miembros'], true, 4, JSON_THROW_ON_ERROR);
+        $oldExtra = json_decode((string) $old['extra'], true, 32, JSON_THROW_ON_ERROR) ?: [];
+
+        if ($old['conductor_id'] === $me) {
+            // Pasajeros y asientos libres los decide el servidor (reservas y cancelaciones de cada pasajero):
+            // así una copia desactualizada del conductor no pisa una reserva recién hecha.
+            $status = $this->str($t, 'status');
+            if (in_array($old['estado'], ['Finalizado', 'Cancelado'], true) && $status !== $old['estado']) {
+                throw new HttpError(409, 'Este viaje ya terminó y no se puede reabrir');
+            }
+            $extra['shares'] = self::mergeShares($oldExtra, $extra, $me, $status !== 'Finalizado');
+            if ($extra['shares'] === []) {
+                unset($extra['shares']);
+            }
+            $this->writeTrip($t, $me, $oldMembers, $extra, (int) $old['asientos']);
+            // Viajes completados: los suma el servidor al terminar el viaje, no cada cliente.
+            if ($status === 'Finalizado' && $old['estado'] !== 'Finalizado') {
+                $this->db->prepare(
+                    'UPDATE usuarios SET viajes_completados = viajes_completados + 1
+                     WHERE id IN (SELECT jsonb_array_elements_text(CAST(:ids AS jsonb)))'
+                )->execute(['ids' => json_encode($oldMembers, JSON_THROW_ON_ERROR)]);
+            }
+            return;
+        }
+
+        // Pasajero: solo su asiento y su ubicación compartida. El resto se toma del servidor.
+        $was = in_array($me, $oldMembers, true);
+        $now = in_array($me, $members, true);
+        $newMembers = $oldMembers;
+        $seats = (int) $old['asientos'];
+        if (!$was && $now) {
+            if ($this->me['rol'] !== 'pasajero') {
+                throw new HttpError(403, 'Solo los pasajeros pueden reservar asientos');
+            }
+            if ($old['estado'] !== 'Activo' || $seats < 1) {
+                throw new HttpError(409, 'Este viaje ya no tiene asientos disponibles');
+            }
+            $newMembers[] = $me;
+            $seats--;
+        } elseif ($was && !$now) {
+            if ($old['estado'] !== 'Activo') {
+                throw new HttpError(409, 'Solo puedes cancelar tu reserva antes de que el viaje inicie');
+            }
+            $newMembers = array_values(array_diff($oldMembers, [$me]));
+            $seats++;
+        } elseif (!$was) {
+            return;
+        }
+        $shares = self::mergeShares($oldExtra, $extra, $me, $now);
+        $st = $this->db->prepare(
+            "UPDATE viajes SET miembros = ARRAY(SELECT jsonb_array_elements_text(CAST(:members AS jsonb))),
+                    asientos = :seats,
+                    extra = CASE WHEN CAST(:shares AS jsonb) = '{}'::jsonb THEN extra - 'shares'
+                                 ELSE jsonb_set(extra, '{shares}', CAST(:shares2 AS jsonb)) END,
+                    actualizado_en = now()
+             WHERE id = :id"
+        );
+        $sharesJson = json_encode((object) $shares, JSON_THROW_ON_ERROR);
+        $st->execute([
+            'id' => $id, 'seats' => $seats, 'shares' => $sharesJson, 'shares2' => $sharesJson,
+            'members' => json_encode(array_values($newMembers), JSON_THROW_ON_ERROR),
+        ]);
+    }
+
+    /** Inserta o actualiza un viaje del conductor $driver con los datos validados. */
+    private function writeTrip(array $t, string $driver, array $members, array $extra, ?int $seats = null): void
+    {
+        $stops = $t['stops'] ?? null;
+        if ($stops !== null && (!is_array($stops) || !array_is_list($stops))) {
+            throw new HttpError(400, 'stops inválido');
+        }
+        $seats ??= $this->int($t, 'seats');
+        if ($seats < 0 || $seats > 6) {
+            throw new HttpError(422, 'Asientos inválidos (0 a 6)');
+        }
+        $stopsJson = $stops === null ? null : json_encode(array_map('strval', $stops), JSON_THROW_ON_ERROR);
+        $st = $this->db->prepare(
+            "INSERT INTO viajes (id, conductor_id, origen, destino, hora, asientos, precio, estado,
+                                 miembros, paradas, taxi, fecha, extra, actualizado_en)
+             VALUES (:id, :driver, :origin, :dest, :time, :seats, :price, :status,
+                     ARRAY(SELECT jsonb_array_elements_text(CAST(:members AS jsonb))),
+                     CASE WHEN CAST(:stops AS jsonb) IS NULL THEN NULL
+                          ELSE ARRAY(SELECT jsonb_array_elements_text(CAST(:stops2 AS jsonb))) END,
+                     :taxi, :fecha, CAST(:extra AS jsonb), now())
+             ON CONFLICT (id) DO UPDATE SET
+               origen = EXCLUDED.origen, destino = EXCLUDED.destino, hora = EXCLUDED.hora,
+               asientos = EXCLUDED.asientos, precio = EXCLUDED.precio, estado = EXCLUDED.estado,
+               miembros = EXCLUDED.miembros, paradas = EXCLUDED.paradas, taxi = EXCLUDED.taxi,
+               fecha = EXCLUDED.fecha, extra = EXCLUDED.extra, actualizado_en = now()
+             WHERE viajes.conductor_id = EXCLUDED.conductor_id"
+        );
+        $st->execute([
+            'id' => $this->str($t, 'id'),
+            'driver' => $driver,
+            'origin' => $this->str($t, 'origin'),
+            'dest' => $this->str($t, 'dest'),
+            'time' => $this->str($t, 'time'),
+            'seats' => $seats,
+            'price' => $this->optNum($t, 'price'),
+            'status' => $this->str($t, 'status'),
+            'members' => json_encode(array_values($members), JSON_THROW_ON_ERROR),
+            'stops' => $stopsJson,
+            'stops2' => $stopsJson,
+            'taxi' => $this->optNum($t, 'taxi'),
+            'fecha' => $this->optStr($t, 'date'),
+            'extra' => $extra === [] ? '{}' : json_encode($extra, JSON_THROW_ON_ERROR),
+        ]);
+    }
+
+    /** ¿$user es el conductor o un miembro del viaje? Devuelve el conductor, o null si no participa. */
+    private function participant(string $tripId, string $user): ?array
+    {
+        $st = $this->db->prepare(
+            'SELECT conductor_id, estado, to_jsonb(miembros) AS miembros FROM viajes WHERE id = :id'
+        );
+        $st->execute(['id' => $tripId]);
+        $t = $st->fetch();
+        if (!$t) {
+            return null;
+        }
+        $t['miembros'] = json_decode((string) $t['miembros'], true, 4, JSON_THROW_ON_ERROR);
+        $t['in'] = $t['conductor_id'] === $user || in_array($user, $t['miembros'], true);
+        return $t;
+    }
+
+    /** Mensajes: el remitente es siempre quien inició sesión y debe participar en el viaje (US13 · US14). */
+    private function syncMessage(array $m, string $me): void
+    {
+        if (($m['sender'] ?? null) !== $me) {
+            return;
+        }
+        $text = $this->str($m, 'text');
+        if (self::len($text) > 1000) {
+            throw new HttpError(422, 'El mensaje admite máximo 1000 caracteres');
+        }
+        $t = $this->participant($this->str($m, 'trip'), $me);
+        if (!$t || !$t['in']) {
+            return;
+        }
+        $this->db->prepare(
+            'INSERT INTO mensajes (id, viaje_id, remitente_id, texto, hora)
+             VALUES (:id, :trip, :sender, :text, :time)
+             ON CONFLICT (id) DO UPDATE SET texto = EXCLUDED.texto, hora = EXCLUDED.hora
+             WHERE mensajes.remitente_id = EXCLUDED.remitente_id'
+        )->execute([
+            'id' => $this->str($m, 'id'), 'trip' => $this->str($m, 'trip'), 'sender' => $me,
+            'text' => $text, 'time' => $this->optStr($m, 'time'),
+        ]);
+    }
+
+    /**
+     * Calificaciones (US18): solo de quien inició sesión, sobre un viaje finalizado en el que ambos
+     * participaron, una vez por persona. La reputación la actualiza el servidor.
+     */
+    private function syncRating(array $r, string $me): void
+    {
+        if (($r['from'] ?? null) !== $me) {
+            return;
+        }
+        $to = $this->str($r, 'to');
+        $tripId = $this->str($r, 'trip');
+        $score = $this->int($r, 'score');
+        if ($score < 1 || $score > 5) {
+            throw new HttpError(422, 'La calificación debe estar entre 1 y 5');
+        }
+        $t = $this->participant($tripId, $me);
+        if (!$t || !$t['in'] || $to === $me || $t['estado'] !== 'Finalizado'
+            || !($t['conductor_id'] === $to || in_array($to, $t['miembros'], true))) {
+            throw new HttpError(403, 'Calificación no permitida');
+        }
+        $dup = $this->db->prepare('SELECT 1 FROM calificaciones WHERE viaje_id = :t AND de_id = :f AND para_id = :to');
+        $dup->execute(['t' => $tripId, 'f' => $me, 'to' => $to]);
+        if ($dup->fetchColumn()) {
+            return;
+        }
+        $ins = $this->db->prepare(
+            'INSERT INTO calificaciones (id, viaje_id, de_id, para_id, puntuacion) VALUES (:id, :trip, :from, :to, :score)
+             ON CONFLICT (id) DO NOTHING'
+        );
+        $ins->execute(['id' => $this->str($r, 'id'), 'trip' => $tripId, 'from' => $me, 'to' => $to, 'score' => $score]);
+        if ($ins->rowCount() > 0) {
+            $this->db->prepare('UPDATE usuarios SET puntuaciones = array_append(puntuaciones, :score) WHERE id = :id')
+                ->execute(['score' => $score, 'id' => $to]);
+        }
+    }
+
+    /**
+     * Avisos creados por el cliente (US15 · US16): solo de tipo mensaje o viaje (los de "cuenta" los
+     * crea únicamente el servidor por acciones de admin) y solo entre participantes del mismo viaje.
+     * De un aviso existente, el destinatario solo puede marcarlo como leído.
+     */
+    private function syncNotice(array $n, string $me): void
+    {
+        $id = $this->str($n, 'id');
+        $cur = $this->db->prepare('SELECT usuario_id FROM notificaciones WHERE id = :id');
+        $cur->execute(['id' => $id]);
+        $owner = $cur->fetchColumn();
+        if ($owner !== false) {
+            if ($owner === $me && !empty($n['read'])) {
+                $this->db->prepare('UPDATE notificaciones SET leida = true WHERE id = :id')->execute(['id' => $id]);
+            }
+            return;
+        }
+        $kind = $this->str($n, 'kind');
+        $to = $this->str($n, 'to');
+        $text = $this->str($n, 'text');
+        $tripId = $this->optStr($n, 'trip');
+        if (!in_array($kind, ['mensaje', 'viaje'], true) || self::len($text) > 300) {
+            return;
+        }
+        if ($to !== $me) {
+            $t = $tripId === null ? null : $this->participant($tripId, $to);
+            // El destinatario participa del viaje, y quien avisa también (o le avisa al conductor tras dejar el viaje).
+            if (!$t || !$t['in'] || !($t['conductor_id'] === $me || in_array($me, $t['miembros'], true) || $t['conductor_id'] === $to)) {
+                return;
+            }
+        }
+        $this->db->prepare(
+            "INSERT INTO notificaciones (id, usuario_id, tipo, texto, viaje_id, leida, creado_en)
+             VALUES (:id, :to, :kind, :text, :trip, :read, now())
+             ON CONFLICT (id) DO NOTHING"
+        )->execute([
+            'id' => $id, 'to' => $to, 'kind' => $kind, 'text' => $text, 'trip' => $tripId,
+            'read' => $to === $me && !empty($n['read']) ? 'true' : 'false',
+        ]);
     }
 
     /** $trusted: datos de la demo (POST /reset). Desde /sync el cliente no puede tocar los campos de administración. */
@@ -762,9 +1270,9 @@ final class Api
     /** Comprueba que quien hace la acción sea un administrador activo; devuelve su id. */
     private function requireAdmin(array $in): string
     {
-        $id = $this->str($in, 'admin');
-        $u = $this->requireUser($id);
-        if ($u['rol'] !== 'admin' || $u['baneado']) {
+        // El admin es quien inició sesión, no el id que venga en el cuerpo.
+        $id = $this->actor($in, 'admin');
+        if (!$this->isAdmin()) {
             throw new HttpError(403, 'Solo un administrador puede hacer esto');
         }
         return $id;

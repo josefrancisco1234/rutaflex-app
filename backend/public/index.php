@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 // Punto de entrada. Todos los endpoints son POST con cuerpo JSON:
-//   Release 1: /api/data  /api/sync  /api/login  /api/reset
+//   Release 1: /api/data  /api/sync  /api/login  /api/register  /api/reset
 //   Release 2: /api/logout  /api/profile  /api/verify  /api/edit-trip  /api/cancel-trip
 //              /api/notifications  /api/mark-read  /api/co2
 //   Administración: /api/driver-apply  /api/admin-review  /api/admin-ban  /api/admin-delete
+// Sesión: /api/login devuelve un token; las demás llamadas lo envían en el header
+//   Authorization: Bearer <token>. El servidor obtiene al usuario del token, no del cuerpo.
 // Desarrollo:  php -S localhost:8000 -t backend/public backend/public/index.php
 
 require __DIR__ . '/../src/Config.php';
@@ -40,7 +42,7 @@ if ($origin !== '' && (in_array('*', $allowed, true) || in_array($origin, $allow
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
     header('Access-Control-Allow-Methods: POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -58,7 +60,7 @@ set_exception_handler(function (Throwable $e): void {
 });
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-if (!preg_match('#/api/(data|sync|login|reset|logout|profile|verify|edit-trip|cancel-trip|notifications|mark-read|co2|driver-apply|admin-review|admin-ban|admin-delete)/?$#', $path, $m)) {
+if (!preg_match('#/api/(data|sync|login|register|reset|logout|profile|verify|edit-trip|cancel-trip|notifications|mark-read|co2|driver-apply|admin-review|admin-ban|admin-delete)/?$#', $path, $m)) {
     fail(404, 'Endpoint no encontrado');
 }
 if ($method !== 'POST') {
@@ -76,10 +78,16 @@ if (!is_array($input)) {
 }
 
 $api = new Api();
+// Login, registro y el reinicio de la demo no usan sesión; todo lo demás identifica al usuario por su token.
+if (!in_array($m[1], ['login', 'register', 'reset'], true)) {
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    $api->authenticate(preg_match('/^Bearer\s+([0-9a-f]{64})$/i', $auth, $t) ? strtolower($t[1]) : null);
+}
 respond(200, match ($m[1]) {
     'data' => $api->data($input),
     'sync' => $api->sync($input),
     'login' => $api->login($input),
+    'register' => $api->register($input),
     'reset' => $api->reset($input),
     'logout' => $api->logout($input),
     'profile' => $api->profile($input),
