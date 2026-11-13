@@ -72,7 +72,6 @@ function RouteForm({ initial, minSeats = 1, lockCritical = false, submitLabel, o
   const originInput = e.currentTarget.elements.namedItem('origin') as HTMLInputElement
   const destInput = e.currentTarget.elements.namedItem('dest') as HTMLInputElement
   const timeInput = e.currentTarget.elements.namedItem('time') as HTMLInputElement
-  const f = new FormData(e.currentTarget)
   originInput.value = initial.origin
   destInput.value = initial.dest
   timeInput.value = initial.time

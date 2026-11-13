@@ -4,6 +4,7 @@ import type { EndSummary } from '../context'
 import { getDb, trip, user, save, passengers, notify } from '../store/db'
 import { apiCancelTrip } from '../store/cloud'
 import { money } from '../lib/utils'
+import { canCancelTrip } from '../lib/cancellation'
 
 // US18 · Modal de calificación (1 a 5 estrellas).
 export function RatingModal({ tripId, target }: { tripId: string, target: string }) {
@@ -89,6 +90,9 @@ export function CancelTripModal({ tripId }: { tripId: string }) {
     const t = trip(tripId)
     if (!t || !current || !t.members.includes(current)) { closeModal(); return toast('Cancelación no permitida.') }
     if (t.status !== 'Activo') { closeModal(); return toast('Solo se cancelan viajes que todavía no han iniciado.') }
+    // US12 · Solo el conductor tiene esta restricción.
+    if (t.driver === current && !canCancelTrip(t)) {
+    return setErr('Ya no es posible cancelar el viaje porque faltan 15 minutos o menos para su inicio.')}
     const why = reason === 'Otro motivo' ? other.trim() : reason
     if (drv && !why) return setErr('Selecciona o escribe el motivo de la cancelación.')
     const route = t.origin + ' → ' + t.dest + ' (' + t.time + ')'
@@ -124,6 +128,11 @@ export function CancelTripModal({ tripId }: { tripId: string }) {
         <div className="tag">US12</div>
         <h2 id="cancel-title">{drv ? 'Cancelar viaje' : 'Cancelar mi reserva'}</h2>
         <p className="muted">{t?.origin} → {t?.dest} · {t?.time}</p>
+        {drv && t && !canCancelTrip(t) && (
+        <div className="alert bad">
+          Ya no es posible cancelar el viaje porque faltan
+          15 minutos o menos para su inicio.
+        </div>)}
         <div className="alert bad">{drv
           ? (ps.length ? 'Se avisará a ' + ps.length + ' pasajero(s): ' + ps.map(id => user(id)?.name).join(', ') + '.' : 'Este viaje no tiene pasajeros.') + ' Esta acción no se puede deshacer.'
           : 'Se liberará tu asiento y se avisará al conductor.'}</div>

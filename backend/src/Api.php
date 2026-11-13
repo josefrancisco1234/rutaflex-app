@@ -464,6 +464,36 @@ final class Api
         }
         $this->transaction(function () use ($tripId, $driver, $reason) {
             $t = $this->lockOwnActiveTrip($tripId, $driver, 'cancelar');
+
+            // US12 · No permitir cancelaciones a 15 minutos o menos.
+            $timezone = new \DateTimeZone('America/Lima');
+            $now = new \DateTimeImmutable('now', $timezone);
+
+            $date = !empty($t['fecha'])
+                ? $t['fecha']
+                : $now->format('Y-m-d');
+
+            $departure = \DateTimeImmutable::createFromFormat(
+            '!Y-m-d H:i',
+            $date . ' ' . $t['hora'],
+            $timezone
+            );
+
+            if ($departure === false) {
+            throw new HttpError(422, 'Fecha u hora del viaje inválida.');
+            }   
+
+            $minutesLeft = (
+            $departure->getTimestamp() - $now->getTimestamp()
+            ) / 60;
+
+            if ($minutesLeft <= 15) {
+            throw new HttpError(
+            409,
+            'Ya no es posible cancelar el viaje porque faltan 15 minutos o menos para su inicio.'
+            );
+            }
+
             $st = $this->db->prepare(
                 "UPDATE viajes SET estado = 'Cancelado',
                         extra = extra || jsonb_build_object('cancelReason', CAST(:reason AS text), 'cancelledAt', now()),
@@ -785,7 +815,7 @@ final class Api
             throw new HttpError(400, 'extra inválido');
         }
         $cur = $this->db->prepare(
-            'SELECT conductor_id, estado, asientos, to_jsonb(miembros) AS miembros, extra FROM viajes WHERE id = :id FOR UPDATE'
+            'SELECT conductor_id, estado, asientos, fecha, hora, to_jsonb(miembros) AS miembros, extra FROM viajes WHERE id = :id FOR UPDATE'
         );
         $cur->execute(['id' => $id]);
         $old = $cur->fetch();
@@ -832,6 +862,29 @@ final class Api
             // Pasajeros y asientos libres los decide el servidor (reservas y cancelaciones de cada pasajero):
             // así una copia desactualizada del conductor no pisa una reserva recién hecha.
             $status = $this->str($t, 'status');
+            // US12 · Impedir cancelaciones tardías mediante sincronización.
+            if ($old['estado'] === 'Activo' && $status === 'Cancelado') {
+             $timezone = new \DateTimeZone('America/Lima');
+             $now = new \DateTimeImmutable('now', $timezone);
+
+             $date = !empty($old['fecha'])
+                ? $old['fecha']
+                : $now->format('Y-m-d');
+
+             $departure = \DateTimeImmutable::createFromFormat(
+                '!Y-m-d H:i',
+                $date . ' ' . $old['hora'],
+                $timezone
+                );
+
+            if ($departure === false ||
+             ($departure->getTimestamp() - $now->getTimestamp()) <= 900) {
+                throw new HttpError(
+                409,
+                'Ya no es posible cancelar el viaje.'
+            );
+            }
+            }
             if (in_array($old['estado'], ['Finalizado', 'Cancelado'], true) && $status !== $old['estado']) {
                 throw new HttpError(409, 'Este viaje ya terminó y no se puede reabrir');
             }
@@ -1276,7 +1329,7 @@ final class Api
     /** Lee un viaje bloqueándolo para actualizarlo; valida conductor y estado Activo. */
     private function lockOwnActiveTrip(string $tripId, string $driver, string $action): array
     {
-        $st = $this->db->prepare('SELECT id, conductor_id, origen, destino, hora, estado, to_jsonb(miembros) AS miembros FROM viajes WHERE id = :id FOR UPDATE');
+        $st = $this->db->prepare('SELECT id, conductor_id, origen, destino, hora, fecha, estado, to_jsonb(miembros) AS miembros FROM viajes WHERE id = :id FOR UPDATE');
         $st->execute(['id' => $tripId]);
         $t = $st->fetch();
         if (!$t) {
