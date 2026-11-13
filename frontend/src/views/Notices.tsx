@@ -12,7 +12,11 @@ const when = (iso: string) => {
 
 // US15 · US16 · Notificaciones de mensajes y de cambios en los viajes.
 export default function Notices() {
-  const { db, current, isDriver, go, unread, markAllRead, toast, homeView } = useSession()
+  const {
+  db, current, isDriver, go, unread,
+  markAllRead, toast, homeView,
+  alertsEnabled, setAlertsEnabled
+  } = useSession()
   const [kind, setKind] = useState<'todas' | NoticeKind>('todas')
   const [perm, setPerm] = useState(() => ('Notification' in window ? Notification.permission : 'denied'))
   const list = db.notices.filter(n => n.to === current && (kind === 'todas' || n.kind === kind)).slice().sort((a, b) => b.at.localeCompare(a.at))
@@ -37,6 +41,27 @@ export default function Notices() {
   return (
     <>
       <Heading title="Notificaciones" hu="US15 · US16" sub="Avisos de mensajes nuevos y de cambios en tus viajes." />
+      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="row between">
+      <div>
+      <h3>Alertas emergentes</h3>
+      <p className="muted">
+        {alertsEnabled
+          ? 'Recibirás alertas cuando lleguen nuevas notificaciones.'
+          : 'Las alertas están desactivadas. Los avisos seguirán guardándose en tu bandeja.'}
+      </p>
+      </div>
+
+      <label>
+      <input
+        type="checkbox"
+        checked={alertsEnabled}
+        onChange={e => setAlertsEnabled(e.target.checked)}
+      />
+      {alertsEnabled ? ' Activadas' : ' Desactivadas'}
+      </label>
+      </div>
+      </div>
       <div className="row between" style={{ marginBottom: 16 }}>
         <div className="btnrow" role="group" aria-label="Filtrar notificaciones" style={{ margin: 0 }}>
           {(['todas', 'mensaje', 'viaje', 'cuenta'] as const).map(k => (
@@ -46,7 +71,11 @@ export default function Notices() {
           ))}
         </div>
         <div className="row">
-          {perm !== 'granted' && <button className="secondary" onClick={enableBrowser}>Activar avisos del navegador</button>}
+          {alertsEnabled && perm !== 'granted' && (
+          <button className="secondary" onClick={enableBrowser}>
+          Activar avisos del navegador
+         </button>
+          )}
           <button className="secondary" onClick={markAllRead} disabled={!unread}>Marcar todo como leído</button>
         </div>
       </div>

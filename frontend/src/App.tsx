@@ -63,6 +63,28 @@ export default function App() {
   const [modal, setModal] = useState<Modal | null>(null)
   const [toastText, setToastText] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  // US15/US16 · Preferencias de alertas por usuario.
+  const [alertPreferences, setAlertPreferences] =
+  useState<Record<string, boolean>>({})
+
+  const alertsEnabled = current
+  ? (alertPreferences[current] ??
+      localStorage.getItem('rutaflex-alerts-' + current) !== 'false')
+  : true
+
+  function setAlertsEnabled(enabled: boolean) {
+  if (!current) return
+
+  localStorage.setItem(
+    'rutaflex-alerts-' + current,
+    String(enabled)
+  )
+
+  setAlertPreferences(prev => ({
+    ...prev,
+    [current]: enabled
+  }))
+  }
 
   const me = current ? user(current) ?? null : null
   const isDriver = me?.role === 'conductor'
@@ -157,11 +179,14 @@ export default function App() {
     ids.forEach(id => known.add(id))
     const n = fresh[fresh.length - 1]
     if (!n) return
+    // Si el usuario desactivó las alertas,
+    // los avisos permanecen en la bandeja.
+    if (!alertsEnabled) return
     // No interrumpir si ya se está leyendo ese chat.
     if (n.kind === 'mensaje' && view === 'chat' && selected === n.trip) return
     toast((n.kind === 'mensaje' ? '💬 ' : n.kind === 'cuenta' ? '🛡️ ' : '🚗 ') + n.text)
     try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification('RutaFlex', { body: n.text }) } catch {}
-  }, [db, db.notices.length, current, view, selected, toast]) // db se muta en el sitio: el largo detecta avisos nuevos
+    }, [db, db.notices.length, current, view, selected, toast, alertsEnabled]) // db se muta en el sitio: el largo detecta avisos nuevos
 
   function markAllRead() {
     if (!current) return
@@ -184,11 +209,15 @@ export default function App() {
   const View = VIEWS[v]
 
   const ctx: AppContextValue = {
-    db, current, me, isDriver, view: v, selected, go, toast, rate, login, logout, setCurrent, resetSession,
-    query, setQuery, searched, setSearched, pending, setPending, otpExpired, setOtpExpired,
-    setModal, closeModal, homeView: me && current ? homeFor(current) : 'login',
-    unread, markAllRead,
-  }
+  db, current, me, isDriver, view: v, selected,
+  go, toast, rate, login, logout, setCurrent, resetSession,
+  query, setQuery, searched, setSearched,
+  pending, setPending, otpExpired, setOtpExpired,
+  setModal, closeModal,
+  homeView: me && current ? homeFor(current) : 'login',
+  unread, markAllRead,
+  alertsEnabled, setAlertsEnabled,
+}
 
   return (
     <AppCtx.Provider value={ctx}>

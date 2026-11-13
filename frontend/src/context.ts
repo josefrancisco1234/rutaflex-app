@@ -50,6 +50,8 @@ export interface AppContextValue {
   homeView: ViewKey
   unread: number               // US15 · US16 · avisos sin leer
   markAllRead: () => void
+  alertsEnabled: boolean
+  setAlertsEnabled: (enabled: boolean) => void
 }
 
 // Estado de sesión y navegación compartido por todas las vistas (lo provee App.tsx).
