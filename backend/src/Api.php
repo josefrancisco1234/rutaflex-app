@@ -399,6 +399,31 @@ final class Api
         }
         $this->transaction(function () use ($tripId, $driver, $p) {
             $t = $this->lockOwnActiveTrip($tripId, $driver, 'editar');
+            $passengers = array_values(array_filter(
+             $t['miembros'],
+             fn ($m) => $m !== $driver
+            ));
+
+            if ($passengers !== []) {
+                $newOrigin = isset($p['origin']) && trim($p['origin']) !== ''
+                ? trim($p['origin']) : $t['origen'];
+
+                 $newDest = isset($p['dest']) && trim($p['dest']) !== ''
+                ? trim($p['dest']) : $t['destino'];
+
+                $newTime = $p['time'] ?? $t['hora'];
+
+            if (
+                $newOrigin !== $t['origen'] ||
+                $newDest !== $t['destino'] ||
+                $newTime !== $t['hora']
+            ) {
+                throw new HttpError(
+                409,
+                'No puedes modificar la hora, partida o destino porque la ruta tiene pasajeros confirmados.'
+        );
+    }
+}
             $st = $this->db->prepare(
                 "UPDATE viajes SET
                    origen = coalesce(nullif(trim(CAST(:origin AS text)), ''), origen),
@@ -784,6 +809,26 @@ final class Api
         $oldExtra = json_decode((string) $old['extra'], true, 32, JSON_THROW_ON_ERROR) ?: [];
 
         if ($old['conductor_id'] === $me) {
+            $confirmed = array_values(array_filter(
+         $oldMembers,
+        fn ($id) => $id !== $me
+        ));
+
+        if ($confirmed !== []) {
+             $criticalChanged =
+            ($t['origin'] ?? null) !== $old['origen'] ||
+            ($t['dest'] ?? null) !== $old['destino'] ||
+            ($t['time'] ?? null) !== $old['hora'] ||
+            ($extra['o'] ?? null) != ($oldExtra['o'] ?? null) ||
+            ($extra['d'] ?? null) != ($oldExtra['d'] ?? null);
+
+         if ($criticalChanged) {
+            throw new HttpError(
+            409,
+            'No se pueden modificar campos críticos con pasajeros confirmados.'
+        );
+    }
+}
             // Pasajeros y asientos libres los decide el servidor (reservas y cancelaciones de cada pasajero):
             // así una copia desactualizada del conductor no pisa una reserva recién hecha.
             $status = $this->str($t, 'status');

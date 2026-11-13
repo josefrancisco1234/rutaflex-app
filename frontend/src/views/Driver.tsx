@@ -47,8 +47,7 @@ export function DriverHome() {
 interface RouteData { origin: string, dest: string, time: string, seats: number, price: number | null, stops: string[], o: LatLng, d: LatLng }
 
 // Formulario compartido por US09 (publicar) y US11 (editar).
-function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?: Trip, minSeats?: number, submitLabel: string, onSubmit: (r: RouteData) => void | Promise<void> }) {
-  const [err, setErr] = useState<FormErrors>({})
+function RouteForm({ initial, minSeats = 1, lockCritical = false, submitLabel, onSubmit }: { initial?: Trip, minSeats?: number, lockCritical?: boolean, submitLabel: string, onSubmit: (r: RouteData) => void | Promise<void> }) {  const [err, setErr] = useState<FormErrors>({})
   const [mode, setMode] = useState<PickMode>(initial?.o ? 'dest' : 'origin')
   const [origin, setOrigin] = useState<LatLng | null>(initial?.o ?? null)
   const [dest, setDest] = useState<LatLng>(initial?.d ?? ULIMA)
@@ -57,16 +56,27 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
   const formRef = useRef<HTMLFormElement>(null)
 
   function onPick(kind: 'o' | 'd', p: LatLng) {
+    if (lockCritical) return
     if (kind === 'o') { setOrigin(p); setErr(e => ({ ...e, map: '' })) } else setDest(p)
   }
   // Dirección del punto elegido en el mapa (búsqueda, clic o pin arrastrado): completa el campo del formulario.
   function onAddress(kind: 'o' | 'd', text: string) {
+    if (lockCritical) return
     const input = formRef.current?.elements.namedItem(kind === 'o' ? 'origin' : 'dest')
     if (input instanceof HTMLInputElement) input.value = text
     setErr(e => ({ ...e, [kind === 'o' ? 'origin' : 'dest']: '' }))
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
+    if (lockCritical && initial) {
+  const originInput = e.currentTarget.elements.namedItem('origin') as HTMLInputElement
+  const destInput = e.currentTarget.elements.namedItem('dest') as HTMLInputElement
+  const timeInput = e.currentTarget.elements.namedItem('time') as HTMLInputElement
+  const f = new FormData(e.currentTarget)
+  originInput.value = initial.origin
+  destInput.value = initial.dest
+  timeInput.value = initial.time
+}
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     const o = String(f.get('origin')).trim(), d = String(f.get('dest')).trim(), time = String(f.get('time'))
@@ -82,7 +92,16 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
     if (!origin) er.map = 'Busca la dirección o haz clic en el mapa para marcar el punto de partida.'
     if (showErrors(er, setErr) || !origin) return
     setBusy(true)
-    await onSubmit({ origin: o, dest: d, time, seats, price: p === '' ? null : Number(p), stops, o: origin, d: dest || ULIMA })
+    await onSubmit({
+      origin: lockCritical && initial ? initial.origin : o,
+      dest: lockCritical && initial ? initial.dest : d,
+      time: lockCritical && initial ? initial.time : time,
+      seats,
+      price: p === '' ? null : Number(p),
+      stops,
+      o: lockCritical && initial ? (initial.o ?? origin) : origin,
+      d: lockCritical && initial ? (initial.d ?? ULIMA) : (dest || ULIMA)
+    })
     setBusy(false)
   }
 
@@ -90,19 +109,36 @@ function RouteForm({ initial, minSeats = 1, submitLabel, onSubmit }: { initial?:
     <div className="card form" style={{ maxWidth: 820 }}>
       <form ref={formRef} onSubmit={submit} noValidate>
         <div className="grid">
-          <Field id="origin" label="Punto de partida *" defaultValue={initial?.origin ?? ''} error={err.origin} />
-          <Field id="dest" label="Destino *" defaultValue={initial?.dest ?? 'Universidad de Lima'} error={err.dest} />
-          <Field id="time" label="Hora de salida *" type="time" defaultValue={initial?.time ?? ''} error={err.time} />
+          <Field id="origin" label="Punto de partida *"
+             defaultValue={initial?.origin ?? ''}
+              error={err.origin}
+             readOnly={lockCritical} />
+          <Field id="dest" label="Destino *"
+              defaultValue={initial?.dest ?? 'Universidad de Lima'}
+             error={err.dest}
+             readOnly={lockCritical} />
+          <Field id="time" label="Hora de salida *"
+             type="time"
+             defaultValue={initial?.time ?? ''}
+             error={err.time}
+              readOnly={lockCritical} />
           <Field id="seats" label="Asientos disponibles *" type="number" min={String(minSeats)} max="6" step="1" defaultValue={initial ? String(initial.seats) : ''} error={err.seats} />
         </div>
         <div className="grid">
           <Field id="price" label="Precio por asiento · dato mock opcional" type="number" min="0" step="0.50" defaultValue={initial?.price != null ? String(initial.price) : ''} error={err.price} />
           <Field id="stops" label="Paradas (separadas por comas)" defaultValue={initial?.stops?.join(', ') ?? ''} placeholder="Ej. Av. Benavides, Javier Prado" />
         </div>
+        {lockCritical && (
+        <div className="alert">
+          Esta ruta tiene pasajeros confirmados.
+          No puedes modificar la hora, el punto de partida
+          ni el destino.
+        </div>
+        )}
         <label>Recorrido en el mapa *</label>
         <div className="btnrow">
-          <button type="button" className={mode === 'origin' ? '' : 'secondary'} onClick={() => setMode('origin')}>📍 Marcar partida</button>
-          <button type="button" className={mode === 'dest' ? '' : 'secondary'} onClick={() => setMode('dest')}>🎓 Mover destino</button>
+          <button type="button" className={mode === 'origin' ? '' : 'secondary'} onClick={() => setMode('origin') } disabled={lockCritical}>📍 Marcar partida</button>
+          <button type="button" className={mode === 'dest' ? '' : 'secondary'} onClick={() => setMode('dest') } disabled={lockCritical}>🎓 Mover destino</button>
         </div>
         <PickMap mode={mode} onMode={setMode} onPick={onPick} onAddress={onAddress} origin={initial?.o} dest={initial?.d} />
         <div className="error">{err.map || ''}</div>
@@ -147,6 +183,16 @@ export function EditTrip() {
   async function saveEdit(r: RouteData) {
     const t = trip(selected)
     if (!t || t.driver !== current || t.status !== 'Activo') return toast('La ruta ya no se puede editar.')
+      const hasPassengers = passengers(t).length > 0
+      if (hasPassengers && (
+         t.time !== r.time ||
+         t.origin !== r.origin ||
+        t.dest !== r.dest ||
+        !same(t.o, r.o) ||
+        !same(t.d, r.d)
+      )) {
+     return toast('No puedes cambiar la hora, partida o destino porque ya existen pasajeros confirmados.')
+      }
     const changes: string[] = []
     if (t.time !== r.time) changes.push('hora ' + t.time + ' → ' + r.time)
     if (t.origin !== r.origin || !same(t.o, r.o)) changes.push('partida: ' + r.origin)
@@ -169,8 +215,22 @@ export function EditTrip() {
   return (
     <>
       <Back go={go} to="trip" id={t.id} label="← Volver al viaje" />
-      <Heading title="Editar ruta" hu="US11 · Conductor" sub={passengers(t).length + ' pasajero(s) confirmados recibirán un aviso con los cambios.'} />
-      <RouteForm initial={t} minSeats={0} submitLabel="Guardar cambios" onSubmit={saveEdit} />
+      <Heading
+        title="Editar ruta"
+        hu="US11 · Conductor"
+        sub={
+        passengers(t).length > 0
+        ? 'Esta ruta tiene pasajeros confirmados. La hora, partida y destino no se pueden modificar.'
+        : 'Puedes modificar los datos de tu ruta antes de iniciar el viaje.'
+      }
+      />
+      <RouteForm
+        initial={t}
+        minSeats={0}
+       lockCritical={passengers(t).length > 0}
+        submitLabel="Guardar cambios"
+       onSubmit={saveEdit}
+/>
     </>
   )
 }
