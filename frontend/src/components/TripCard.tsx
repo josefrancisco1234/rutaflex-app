@@ -9,7 +9,10 @@ export default function TripCard({ t }: { t: Trip }) {
   const mine = t.driver === current
   const member = t.members.includes(current) && !mine
   const action = mine
-    ? <button onClick={() => go('trip', t.id)}>{t.status === 'En curso' ? 'Ver viaje en curso →' : 'Gestionar viaje →'}</button>
+    ? <div className="row">
+      {t.status === 'Activo' && <button className="secondary" onClick={() => go('edittrip', t.id)}>Editar</button>}
+      <button onClick={() => go('trip', t.id)}>{t.status === 'En curso' ? 'Ver viaje en curso →' : 'Gestionar viaje →'}</button>
+    </div>
     : member
       ? <button onClick={() => go('trip', t.id)}>Seguir mi viaje →</button>
       : <button className="secondary" onClick={() => go('detail', t.id)}>Ver viaje →</button>
@@ -22,7 +25,7 @@ export default function TripCard({ t }: { t: Trip }) {
       </div>
       {mine
         ? <p className="muted">{passengers(t).length} pasajero(s) confirmados · {t.seats} asientos libres</p>
-        : <div className="row"><span className="avatar">{u?.name[0]}</span><div><strong>{u?.name}</strong><br />{u && <Reputation u={u} />}</div></div>}
+        : <div className="row"><span className="avatar">{u?.name[0]}</span><div><strong>{u?.name}</strong>{u?.verified && <span className="verified" title="Identidad verificada"> ✔</span>}<br />{u && <Reputation u={u} />}</div></div>}
       <footer className="row between"><small>{t.seats} asientos disponibles</small>{action}</footer>
     </article>
   )

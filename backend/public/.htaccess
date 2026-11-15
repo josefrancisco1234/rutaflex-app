@@ -1,4 +1,7 @@
 # Apache: todo lo que llegue a /api/* lo atiende index.php
 RewriteEngine On
+# Algunos Apache (PHP-FPM/CGI) no pasan el header Authorization a PHP: se reenvía explícitamente.
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [L]

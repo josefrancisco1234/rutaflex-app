@@ -2,11 +2,30 @@ import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useApp } from '../context'
 import { getDb, save } from '../store/db'
-import { cloudReady, cloudLogin } from '../store/cloud'
+import { cloudReady, cloudLogin, cloudRegister } from '../store/cloud'
 import { institutional, showErrors } from '../lib/utils'
+import { demoMode } from '../lib/api'
 import type { FormErrors } from '../lib/utils'
 import { Field } from '../components/ui'
-import type { Role } from '../types'
+import { readApplication } from '../lib/driver'
+import type { DriverApplication, Role } from '../types'
+
+// Formulario de solicitud de conductor (registro y reenvío tras un rechazo).
+export function DriverFields({ err, app, phone }: { err: FormErrors, app?: DriverApplication, phone?: string }) {
+  return (
+    <fieldset className="driverform">
+      <legend>Solicitud de conductor</legend>
+      <p className="muted">Un administrador revisará estos datos antes de que puedas publicar rutas.</p>
+      <Field id="model" label="Vehículo (marca, modelo y color) *" placeholder="Ej. Toyota Yaris rojo" defaultValue={app?.model ?? ''} error={err.model} />
+      <div className="grid">
+        <Field id="plate" label="Placa *" placeholder="ABC-123" defaultValue={app?.plate ?? ''} error={err.plate} />
+        <Field id="license" label="Licencia de conducir *" placeholder="Q12345678" defaultValue={app?.license ?? ''} error={err.license} />
+        <Field id="soat" label="Vencimiento del SOAT *" type="date" defaultValue={app?.soat ?? ''} error={err.soat} />
+        <Field id="phone" label="Celular *" inputMode="numeric" placeholder="9XXXXXXXX" defaultValue={phone ?? ''} error={err.phone} />
+      </div>
+    </fieldset>
+  )
+}
 
 function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -18,7 +37,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
         <div className="note">
           <strong>Dos perfiles, un mismo trayecto.</strong>
           <p className="muted">Pasajero: busca, reserva y sigue el viaje en el mapa.<br />Conductor: publica, inicia y termina el viaje al llegar.</p>
-          <small>Prototipo académico. Todos los usuarios y viajes son ficticios.</small>
+          {demoMode && <small>Prototipo académico. Todos los usuarios y viajes son ficticios.</small>}
         </div>
       </div>
       <div className="card authform">{children}</div>
@@ -43,13 +62,34 @@ export function Login() {
     let id: string | null = null
     if (cloudReady()) {
       setBusy(true)
-      try { id = await cloudLogin(email, pass) } catch { toast('No se pudo conectar con el servidor.') }
+      try { id = await cloudLogin(email, pass) } catch (e) {
+        setBusy(false)
+        // El servidor responde 403 con el motivo cuando la cuenta está suspendida.
+        const msg = (e as { error?: string } | null)?.error
+        return msg ? showErrors({ password: msg }, setErr) : toast('No se pudo conectar con el servidor.')
+      }
       setBusy(false)
     } else {
-      id = getDb().users.find(u => u.email === email && u.pass === pass)?.id ?? null
+      const u = getDb().users.find(u => u.email === email && u.pass === pass)
+      if (u?.banned) return showErrors({ password: 'Tu cuenta fue suspendida por un administrador' + (u.banReason ? '. Motivo: ' + u.banReason : '') + '.' }, setErr)
+      id = u?.id ?? null
     }
     if (!id) return showErrors({ password: 'Correo o contraseña incorrectos.' }, setErr)
     login(id)
+  }
+
+  // Perfiles ficticios: con el backend en línea también pasan por /api/login para obtener su token.
+  async function quick(id: string, email: string) {
+    if (!cloudReady()) return login(id)
+    setBusy(true)
+    try {
+      const uid = await cloudLogin(email, 'RutaFlex1!')
+      setBusy(false)
+      return uid ? login(uid) : toast('No se pudo iniciar sesión con el perfil de demostración.')
+    } catch {
+      setBusy(false)
+      toast('No se pudo conectar con el servidor.')
+    }
   }
 
   return (
@@ -63,13 +103,15 @@ export function Login() {
         <button className="full" disabled={busy}>{busy ? 'Verificando…' : 'Iniciar sesión'}</button>
       </form>
       <button className="link full" onClick={() => go('register')}>¿Primera vez? Regístrate</button>
-      <div className="alert">
+      {demoMode && <div className="alert">
         <strong>Perfiles ficticios de exposición</strong> · contraseña: RutaFlex1!
         <div className="rolepick">
-          <button className="secondary" onClick={() => login('g')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
-          <button className="secondary" onClick={() => login('a')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('g', 'gabriel@aloe.ulima.edu.pe')}><span>🎒</span><strong>Pasajero</strong>gabriel@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('a', 'andrea@aloe.ulima.edu.pe')}><span>🚗</span><strong>Conductor</strong>andrea@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('admin', 'admin@aloe.ulima.edu.pe')}><span>🛡️</span><strong>Administrador</strong>admin@aloe.ulima.edu.pe</button>
+          <button className="secondary" disabled={busy} onClick={() => quick('m', 'marco@aloe.ulima.edu.pe')}><span>⏳</span><strong>Conductor en revisión</strong>marco@aloe.ulima.edu.pe</button>
         </div>
-      </div>
+      </div>}
     </AuthLayout>
   )
 }
@@ -84,15 +126,17 @@ export function Register() {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     const name = String(f.get('name')).trim(), email = String(f.get('email')).trim().toLowerCase()
-    const pass = String(f.get('password')), car = String(f.get('car') || '').trim()
+    const pass = String(f.get('password'))
+    const driver = role === 'conductor' ? readApplication(f) : null
     const er: FormErrors = {}
     if (!name) er.name = 'Completa tu nombre.'
     if (!institutional(email)) er.email = 'Utiliza un correo institucional del dominio de demostración.'
     else if (getDb().users.some(u => u.email === email)) er.email = 'Este correo ya está registrado.'
     if (!pass.trim()) er.password = 'Completa tu contraseña.'
-    if (role === 'conductor' && !car) er.car = 'Los conductores deben registrar su vehículo.'
+    else if (pass.length < 8) er.password = 'La contraseña debe tener al menos 8 caracteres.'
+    if (driver) Object.assign(er, driver.er)
     if (showErrors(er, setErr)) return
-    setPending({ name, email, pass, role, ...(role === 'conductor' ? { car } : {}) })
+    setPending({ name, email, pass, role, ...(driver ? { car: driver.car, phone: driver.phone, application: driver.app } : {}) })
     setOtpExpired(false)
     go('otp')
   }
@@ -112,7 +156,7 @@ export function Register() {
             <option value="conductor">🚗 Conductor — ofrezco viajes</option>
           </select>
         </div>
-        {role === 'conductor' && <Field id="car" label="Vehículo y placa *" placeholder="Ej. Sedán rojo · ABC-123" error={err.car} />}
+        {role === 'conductor' && <DriverFields err={err} />}
         <p className="muted">Universidad de Lima · dominio demo: aloe.ulima.edu.pe. Lista completa de dominios y política de contraseña: POR DEFINIR.</p>
         <button className="full">Continuar a verificación</button>
       </form>
@@ -126,16 +170,30 @@ export function Otp() {
   const { go, toast, pending, setPending, otpExpired, setOtpExpired } = useApp()
   const [err, setErr] = useState<FormErrors>({})
 
-  function submit(e: FormEvent<HTMLFormElement>) {
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!pending) return go('register')
     if (otpExpired) return showErrors({ code: 'El código está vencido. Solicita un nuevo código simulado.' }, setErr)
     if (String(new FormData(e.currentTarget).get('code')).trim() !== '123456') return showErrors({ code: 'Código inválido.' }, setErr)
-    getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0 })
-    save()
+    const driver = pending.role === 'conductor'
+    if (cloudReady()) {
+      // Con el backend, la cuenta la crea el servidor (valida el dominio y cifra la contraseña).
+      setBusy(true)
+      const error = await cloudRegister(pending)
+      setBusy(false)
+      if (error) return showErrors({ code: error }, setErr)
+    } else {
+      // Los conductores entran como pendientes hasta que un administrador revise su solicitud.
+      getDb().users.push({ ...pending, id: 'u' + Date.now(), scores: [], completed: 0, ...(driver ? { driverStatus: 'pendiente' as const } : {}) })
+      save()
+    }
     setPending(null)
     go('login')
-    toast('Registro exitoso. Ya puedes iniciar sesión.')
+    toast(driver
+      ? 'Registro exitoso. Tu solicitud de conductor quedó en revisión; te avisaremos cuando un administrador la apruebe.'
+      : 'Registro exitoso. Ya puedes iniciar sesión.')
   }
 
   return (
@@ -146,7 +204,7 @@ export function Otp() {
       <div className="alert">Código ficticio: <strong>123456</strong><br />Vigencia y longitud productivas: POR DEFINIR.</div>
       <form onSubmit={submit} noValidate>
         <Field id="code" label="Código de verificación" inputMode="numeric" error={err.code} />
-        <button className="full">Verificar y registrar</button>
+        <button className="full" disabled={busy}>{busy ? 'Registrando…' : 'Verificar y registrar'}</button>
       </form>
       <button className="link" onClick={() => { setOtpExpired(true); toast('Código marcado como vencido para la prueba') }}>Simular código vencido</button>
       <button className="link" onClick={() => { setOtpExpired(false); toast('Nuevo código simulado: 123456') }}>Simular nuevo código</button>

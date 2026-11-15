@@ -16,23 +16,35 @@ const MATRIX = [
   ['EXT-1', 'Perfiles pasajero y conductor', 'Login / navegación', 'Entrar como Gabriel y como Andrea', 'Menú y pantallas distintas según el rol', 'Extensión R1.1'],
   ['EXT-2', 'Mapa interactivo del viaje', 'Detalle / Seguir viaje / Gestionar viaje', 'Abrir t1; iniciar viaje; simular recorrido; usar GPS', 'Ruta, paradas y posición del conductor en vivo', 'Extensión R1.1'],
   ['EXT-3', 'Terminar viaje al llegar', 'Gestionar viaje (conductor)', 'Intentar terminar antes de llegar; llegar y terminar', 'Botón bloqueado hasta llegar; viaje pasa a Finalizado e historial', 'Extensión R1.1'],
+  ['US03', 'Cerrar sesión', 'Encabezado', 'Cerrar sesión e intentar volver a una pantalla interna', 'Sesión eliminada; las pantallas protegidas redirigen al login', 'IS2 §4.3.1 · Sprint 3'],
+  ['US07', 'Filtrar viajes (hora, destino)', 'Buscar viajes', 'Filtrar por destino, partida, rango horario y precio; rango inválido; sin coincidencias', 'Resultados que respetan los filtros o estado vacío', 'IS2 §4.3.1 · Sprint 3'],
+  ['US11', 'Editar ruta publicada', 'Panel / Gestionar viaje → Editar', 'Andrea edita t1; otro conductor intenta editar; editar viaje en curso', 'Solo el conductor guarda cambios en rutas activas; pasajeros avisados', 'IS2 §4.3.1 · Sprint 3'],
+  ['US15', 'Notificaciones de mensajes', 'Campana / Conversaciones / Chat', 'Andrea escribe a Gabriel en t1', 'Aviso emergente, contador sin leer y marca de leído al abrir el chat', 'IS2 §4.3.1 · Sprint 3'],
+  ['US19', 'Compartir ubicación en tiempo real', 'Seguir / Gestionar viaje', 'Pasajero o conductor comparten su ubicación; dejar de compartir', 'Marcador 🧍 visible para los participantes mientras dura el viaje', 'IS2 §4.3.1 · Sprint 3'],
+  ['US23', 'Ver CO₂ ahorrado', 'CO₂ / Ahorro / Historial', 'Consultar Gabriel; cuenta nueva; terminar un viaje', 'CO₂ = km × 0,192 kg/km (× pasajeros para el conductor) con detalle por viaje', 'IS2 §4.3.1 · Sprint 3'],
+  ['US04', 'Editar perfil', 'Perfil → Editar perfil', 'Cambiar nombre, carrera, zona, hora y vehículo; nombre vacío; celular inválido', 'Cambios válidos guardados y visibles en el perfil', 'IS2 §4.3.2 · Sprint 4'],
+  ['US08', 'Recomendaciones de viajes', 'Buscar viajes', 'Gabriel (Miraflores · 07:15); usar ubicación actual; perfil sin zona ni hora', 'Viajes sugeridos por cercanía y horario con % de coincidencia', 'IS2 §4.3.2 · Sprint 4'],
+  ['US12', 'Cancelar viaje', 'Gestionar viaje → Cancelar', 'Conductor cancela con motivo; pasajero cancela su reserva; cancelar viaje en curso', 'Estado Cancelado, asiento liberado y aviso a los involucrados', 'IS2 §4.3.2 · Sprint 4'],
+  ['US16', 'Notificaciones de viaje', 'Campana', 'Reservar, editar, iniciar, terminar y cancelar un viaje', 'Aviso a cada participante afectado por el cambio', 'IS2 §4.3.2 · Sprint 4'],
+  ['US20', 'Validar identidad de usuario', 'Perfil → Validar identidad', 'Gabriel ingresa código universitario y código del correo (654321); código inválido', 'Usuario marcado como verificado con insignia ✔', 'IS2 §4.3.2 · Sprint 4'],
+  ['US24', 'Historial detallado', 'Historial → Ver detalle', 'Abrir un viaje finalizado y uno cancelado; filtrar por estado', 'Fecha, ruta, horarios, distancia, costo, ahorro y CO₂ de cada viaje', 'IS2 §4.3.2 · Sprint 4'],
   ['EXT-4', 'Backend y base de datos', 'Toda la app', 'Abrir pasajero y conductor en dos dispositivos; reiniciar demo', 'Datos persistentes en PostgreSQL y seguimiento en vivo entre dispositivos', 'Release 1.2'],
 ]
 
 export default function Guide() {
   return (
     <>
-      <Heading title="Guía de exposición y trazabilidad" hu="Release 1.2 · Sprint 1 + Sprint 2 + perfiles, mapa y backend" sub="Fuente principal: IS2.pdf. Referencia visual: informe anterior." />
+      <Heading title="Guía de exposición y trazabilidad" hu="Release 2 · Sprints 1–4 · producto completo" sub="Fuente principal: IS2.pdf (Release 1 §4.2 y Release 2 §4.3)." />
       <div className="guide">
         <section className="card">
           <h2>1. Alcance analizado</h2>
-          <p>IS2.pdf, pp. 7–8, 27–34 y 47–55: MVP de acceso, búsqueda, publicación, chat, reputación, historial y ahorro. Las doce historias listadas abajo, más extensiones (perfiles por rol, mapa interactivo, terminar viaje y backend).</p>
-          <p>No se implementan edición de perfil, filtros avanzados, recomendaciones, edición o cancelación de rutas, notificaciones, validación administrativa de identidad, CO₂ ni historial detallado. "Cambiar perfil" existe solo para alternar entre pasajero y conductor en la exposición.</p>
+          <p><strong>Release 1 (MVP):</strong> acceso, búsqueda, publicación, chat, reputación, historial y ahorro (12 historias) más extensiones (perfiles por rol, mapa interactivo, terminar viaje y backend).</p>
+          <p><strong>Release 2:</strong> cierre de sesión, edición de perfil, filtros, recomendaciones, edición y cancelación de rutas, notificaciones de mensajes y de viaje, ubicación compartida en tiempo real, validación de identidad, CO₂ ahorrado e historial detallado (12 historias). Las 24 historias del Product Backlog están implementadas.</p>
           <p>OTP pertenece al registro US02 según p. 33. El chat exige participación en viaje activo o en curso (p. 50).</p>
         </section>
         <section className="card">
           <h2>2. Historias y pantallas mínimas</h2>
-          <p><strong>Sprint 1:</strong> US01, US05, US09, US13, US17, US21.<br /><strong>Sprint 2:</strong> US02, US06, US10, US14, US18, US22.<br /><strong>Extensiones:</strong> EXT-1 perfiles, EXT-2 mapa, EXT-3 terminar viaje, EXT-4 backend PHP + PostgreSQL.</p>
+          <p><strong>Sprint 1:</strong> US01, US05, US09, US13, US17, US21.<br /><strong>Sprint 2:</strong> US02, US06, US10, US14, US18, US22.<br /><strong>Sprint 3:</strong> US03, US07, US11, US15, US19, US23.<br /><strong>Sprint 4:</strong> US04, US08, US12, US16, US20, US24.<br /><strong>Extensiones:</strong> EXT-1 perfiles, EXT-2 mapa, EXT-3 terminar viaje, EXT-4 backend PHP + PostgreSQL.</p>
           <p><strong>Pasajero:</strong> buscar viajes, detalle con mapa, reservar asiento, Mis viajes, seguir viaje en vivo, chat, historial, ahorro, perfil.<br /><strong>Conductor:</strong> panel con rutas activas, publicar ruta con mapa, gestionar viaje (iniciar · simular/GPS · terminar), chat, historial, ganancias, perfil.</p>
         </section>
         <section className="card">
@@ -46,7 +58,8 @@ export default function Guide() {
         </section>
         <section className="card">
           <h2>5. Arquitectura</h2>
-          <p><strong>Frontend:</strong> React 18 + TypeScript + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> PHP 8 + PostgreSQL. Tablas usuarios, credenciales, viajes, mensajes y calificaciones; contraseñas cifradas con bcrypt (password_hash); API con endpoints solo POST (/api/data, /api/sync, /api/login, /api/reset) y sondeo cada 1,5 s para el seguimiento en vivo.</p>
+          <p><strong>Frontend:</strong> React 18 + TypeScript + Vite. Vistas por rol, componentes reutilizables (tarjetas, mapa, modales) y un store con sincronización.<br /><strong>Backend:</strong> PHP 8 + PostgreSQL. Tablas usuarios, credenciales, viajes, mensajes, calificaciones y notificaciones; contraseñas cifradas con bcrypt (password_hash); API con endpoints solo POST y sondeo cada 1,5 s para el seguimiento en vivo y los avisos.</p>
+          <p><strong>Endpoints</strong> (POST <code>/api/&lt;endpoint&gt;</code> con cuerpo JSON): data, sync, login, reset (Release 1) · logout (US03), profile (US04), edit-trip (US11), cancel-trip (US12), notifications y mark-read (US15 · US16), verify (US20), co2 (US23). Requiere <code>frontend/.env</code> con VITE_API_URL; sin esa variable la app trabaja en modo local.</p>
           <p>Mapa: Leaflet + teselas de OpenStreetMap/CARTO; la ruta por calles se pide a OSRM y, si no responde, se dibuja una línea por las paradas. Sin backend la app funciona en modo local (localStorage).</p>
         </section>
         <section className="card">

@@ -27,3 +27,98 @@ button.finish:disabled{background:#c9b3b0}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .btnrow button{flex:1}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr 1fr}.leaf{height:330px}.rolepick{grid-template-columns:1fr}}
+
+/* ---------- Release 2 ---------- */
+textarea{width:100%;padding:12px 14px;border:1px solid #ccdadd;border-radius:11px;background:white;color:var(--ink);font:inherit;resize:vertical}
+textarea.invalid{border-color:#b83131}
+input:disabled{background:var(--bg);color:var(--muted)}
+.verified{color:var(--green);font-weight:800}
+.muted-pill{background:#eef1f3;color:var(--muted)}
+button.bell{position:relative;background:white;border:1px solid var(--line);color:var(--ink);padding:6px 10px;font-size:16px}
+button.bell.active{background:var(--mint)}
+.badge{position:absolute;top:-6px;right:-6px;background:#c0392b;color:white;border-radius:20px;font-size:11px;min-width:18px;height:18px;line-height:18px;padding:0 5px;text-align:center;font-weight:750}
+.badge.inline{position:static;display:inline-block;margin-left:8px;vertical-align:middle}
+.noticelist{padding:8px}
+.notice{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:transparent;color:var(--ink);font-weight:400;border-radius:12px;padding:12px}
+.notice:hover{background:var(--bg);filter:none}
+.notice.unread{background:var(--mint)}
+.notice .nicon{font-size:20px}
+.notice .nbody{display:flex;flex-direction:column;gap:2px}
+.notice.unread .nbody span{font-weight:650}
+.recs{margin-bottom:22px}
+.reclist{display:grid;gap:10px;margin-top:6px}
+.rec{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;flex-wrap:wrap}
+.why{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#0b8a43}
+.why span{background:var(--mint);border-radius:20px;padding:2px 9px}
+.filters{margin-bottom:22px}
+.fgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-top:10px}
+.fgrid .field{margin-bottom:6px}
+.detail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 0;border-top:1px solid var(--line);padding-top:16px}
+.detail div{background:var(--bg);border-radius:12px;padding:10px 12px}
+.detail dt{font-size:12px;color:var(--muted)}
+.detail dd{margin:0;font-weight:650;overflow-wrap:anywhere}
+.sharebox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:14px}
+.personpin{font-size:22px;line-height:1;filter:drop-shadow(0 2px 3px #0005)}
+.personpin.me{filter:drop-shadow(0 0 4px #1e9e4a)}
+button.danger{background:#c0392b}
+button.dangertext{color:#a52a20}
+@media(max-width:850px){.fgrid{grid-template-columns:1fr 1fr}.fgrid .field:first-child{grid-column:1/-1}.detail{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr 1fr}}
+
+/* ---------- Administración ---------- */
+.rolebadge.admin{background:#ece8fb;color:#4b3a8f}
+.pill.state{background:var(--mint);color:#006950;white-space:nowrap}
+.pill.state.warn{background:#fff3dc;color:#8a5a00}
+.pill.state.bad{background:#fff0ef;color:#9d2929}
+.adminstats{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:18px}
+.adminstats button{display:block;text-align:left;font-weight:400;border-radius:12px;padding:10px 12px;min-height:0;background:var(--bg);border:1px solid transparent;color:var(--ink)}
+.adminstats button.attention{background:#fff3dc;border-color:#f0d49a}
+.admintable td{vertical-align:middle}
+.admintable .actions{gap:6px;flex-wrap:nowrap}
+.admintable .actions button{padding:7px 12px;min-height:34px;font-size:13px}
+.reqlist{display:grid;gap:16px}
+.detail dd.bad{color:#9d2929}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.chips button{padding:6px 10px;min-height:0;font-size:12px;font-weight:500;border-radius:20px}
+.driverform{border:1px solid var(--line);border-radius:14px;padding:14px 16px 2px;margin:0 0 18px}
+.driverform legend{font-weight:700;font-size:14px;padding:0 6px}
+.driverform .grid{gap:0 14px}
+.steps{padding-left:20px;margin:0}.steps li{margin-bottom:8px}
+@media(max-width:850px){.adminstats{grid-template-columns:1fr 1fr}.admintable .actions{flex-wrap:wrap}}
+
+/* ---------- Mapa estilo Google Maps ---------- */
+.mapwrap{position:relative;margin:18px 0}
+.mapwrap .leaf{margin:0}
+.gpin{background:none;border:0}
+.gpin svg{display:block;filter:drop-shadow(0 2px 2px #0005)}
+.carpin{width:34px;height:34px;display:grid;place-items:center;background:white;border-radius:50%;box-shadow:0 2px 6px #0004;font-size:20px}
+.medot{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid white;box-shadow:0 0 0 0 #1a73e866,0 1px 4px #0005;animation:mepulse 2s infinite}
+@keyframes mepulse{0%{box-shadow:0 0 0 0 #1a73e866,0 1px 4px #0005}70%{box-shadow:0 0 0 14px #1a73e800,0 1px 4px #0005}100%{box-shadow:0 0 0 0 #1a73e800,0 1px 4px #0005}}
+.leaflet-control-zoom{border:0!important;box-shadow:0 1px 4px #0000004d!important;border-radius:8px!important;overflow:hidden}
+.leaflet-control-zoom a{width:40px!important;height:40px!important;line-height:40px!important;font-size:20px!important;color:#5f6368!important;border:0!important}
+.leaflet-control-zoom a:first-child{border-bottom:1px solid #e8eaed!important}
+button.maplocate{width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;background:white;color:#5f6368;border-radius:8px;box-shadow:0 1px 4px #0000004d}
+button.maplocate:hover{color:#1a73e8;filter:none}
+button.maplocate.busy{color:#1a73e8;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+button.maptoggle{background:white;color:#3c4043;border-radius:8px;box-shadow:0 1px 4px #0000004d;padding:8px 12px;min-height:36px;font-size:13px}
+.leaflet-control-scale-line{border-color:#5f6368;color:#3c4043;background:#ffffffcc}
+.mapsearch{position:absolute;top:12px;left:12px;right:12px;max-width:420px;z-index:500}
+.searchbar{display:flex;align-items:center;gap:8px;background:white;border-radius:24px;box-shadow:0 2px 6px #0000004d;padding:0 8px 0 16px}
+.searchbar input{border:0;padding:12px 4px;background:transparent;outline:none;min-width:0}
+.searchbar:focus-within{box-shadow:0 2px 8px #0000005c,0 0 0 2px #1a73e8}
+.searchbar .clear{background:transparent;color:#5f6368;padding:6px 10px;min-height:0;font-weight:400}
+.suggestions{list-style:none;margin:6px 0 0;padding:6px 0;background:white;border-radius:12px;box-shadow:0 2px 8px #0000004d;max-height:280px;overflow:auto}
+.suggestions li{display:flex;gap:10px;align-items:flex-start;padding:9px 14px;cursor:pointer}
+.suggestions li.active,.suggestions li:hover{background:#f1f3f4}
+.suggestions li.hint{color:var(--muted);cursor:default;font-size:13px}
+.suggestions li.hint:hover{background:none}
+.suggestions strong{display:block;font-weight:600;font-size:14px}
+.suggestions small{display:block}
+.suggestions .sicon{font-size:16px;margin-top:2px}
+.routechip{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:500;background:white;border-radius:20px;box-shadow:0 1px 4px #0000004d;padding:6px 14px;font-size:14px;white-space:nowrap}
+.routechip strong{color:#0f9d58}
+.routechip span{color:#5f6368}
+.mapmsg{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:600;background:#3c4043;color:white;border-radius:8px;padding:8px 14px;font-size:13px;max-width:90%}
+a.gmaps{display:inline-block;font-size:13px;font-weight:650;text-decoration:none;margin:-8px 0 14px}
+a.gmaps:hover{text-decoration:underline}
+@media(max-width:850px){.mapsearch{max-width:none}.routechip{bottom:auto;top:64px}}
