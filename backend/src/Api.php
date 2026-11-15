@@ -815,7 +815,7 @@ final class Api
             throw new HttpError(400, 'extra inválido');
         }
         $cur = $this->db->prepare(
-            'SELECT conductor_id, estado, asientos, fecha, hora, to_jsonb(miembros) AS miembros, extra FROM viajes WHERE id = :id FOR UPDATE'
+            'SELECT conductor_id, origen, destino, estado, asientos, fecha, hora, to_jsonb(miembros) AS miembros, extra FROM viajes WHERE id = :id FOR UPDATE'
         );
         $cur->execute(['id' => $id]);
         $old = $cur->fetch();
